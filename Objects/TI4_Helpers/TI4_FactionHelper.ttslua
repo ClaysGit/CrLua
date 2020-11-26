@@ -1130,8 +1130,8 @@ local _purgeBagGuid = '2a1c64' --TODO: Will need this updated
 local _factionCardNameToAbilityFunc = false
 local _purgeCardQueue = {}
 
-function _purgeCardCoroutine()
-    local cardObject = assert(table.remove(_purgeCardQueue))
+function purgeCard(cardObject)
+    assert(cardObject.tag == 'Card')
 
     local inHandGuidSet = _zoneHelper.inHand()
     assert(not inHandGuidSet[cardObject.getGUID()], 'Cannot purge cards that are in a player\'s hand.')
@@ -1142,19 +1142,20 @@ function _purgeCardCoroutine()
 
     purgeBagObject.putObject(cardObject)
     broadcastToAll('PURGING card \'' .. cardObject.getName() .. '\'')
-
-    return 1
-end
-
-function purgeCard(cardObject)
-    assert(cardObject.tag == 'Card')
-
-    table.insert(_purgeCardQueue, cardObject)
-    startLuaCoroutine(self, '_purgeCardCoroutine')
 end
 
 local function _jacexHeroAbility(owningObject) --Sol Hero
-    _strategyCardHelper.returnJaceXCommandTokens()
+    local factionTokenName = false
+    for _, faction in pairs(allFactions(true)) do
+        if faction.hero == 'Jace X, 4th Air Legion' then
+            factionTokenName = faction.tokenName
+            break
+        end
+    end
+
+    assert(factionTokenName, 'Trying to invoke Jace X Hero Ability, but no faction with "Jace X, 4th Air Legion" is at the table.')
+
+    _strategyCardHelper.returnCommandTokensForFaction(factionTokenName)
 
     if owningObject.tag == 'Card' then
         purgeCard(owningObject)

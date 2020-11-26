@@ -854,16 +854,10 @@ function endStatusPhase()
     startLuaCoroutine(self, '_endStatusPhaseCoroutine')
 end
 
-function _returnJaceXCommandTokensCoroutine()
-    local factionTokenName = false
-    for _, faction in pairs(_factionHelper.allFactions()) do
-        if faction.hero == 'Jace X, 4th Air Legion' then
-            factionTokenName = faction.tokenName
-            break
-        end
-    end
+local _returnCommandTokensFactionQueue = {}
 
-    assert(factionTokenName, 'Trying to invoke Jace X Hero Ability, but no faction with "Jace X, 4th Air Legion" is at the table.')
+function _returnCommandTokensForFactionCoroutine()
+    local factionTokenName = assert(table.remove(_returnCommandTokensFactionQueue))
 
     _returnCommandTokens(factionTokenName)
     coroutine.yield(0)
@@ -871,8 +865,11 @@ function _returnJaceXCommandTokensCoroutine()
     return 1
 end
 
-function returnJaceXCommandTokens()
-    startLuaCoroutine(self, '_returnJaceXCommandTokensCoroutine')
+function returnCommandTokensForFaction(factionTokenName)
+    assert(type(factionTokenName) == 'string')
+
+    table.insert(_returnCommandTokensFactionQueue, factionTokenName)
+    startLuaCoroutine(self, '_returnCommandTokensForFactionCoroutine')
 end
 
 -------------------------------------------------------------------------------
