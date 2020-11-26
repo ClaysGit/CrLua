@@ -31,6 +31,7 @@ function getHelperClient(helperObjectName)
     return setmetatable({}, { __index = function(t, k) return getCallWrapper(k) end })
 end
 local _zoneHelper = getHelperClient('TI4_ZONE_HELPER')
+local _strategyCardHelper = getHelperClient('TI4_STRATEGY_CARD_HELPER')
 
 -- Per-faction attributes.  This helper will also add the following fields:
 -- - color (string) or nil if not in use.
@@ -1018,6 +1019,68 @@ function tintTokens(params)
     end
 end
 
+-------------------------------------------------------------------------------
+
+local _purgeBagGuid = '2a1c64' --TODO: Will need this updated
+
+local _factionCardNameToAbilityFunc = false
+local _purgeCardQueue = {}
+
+function _purgeCardCoroutine()
+    local cardObject = assert(table.remove(_purgeCardQueue))
+
+    local inHandGuidSet = _zoneHelper.inHand()
+    assert(not inHandGuidSet[cardObject.getGUID()], 'Cannot purge cards that are in a player\'s hand.')
+
+    local purgeBagObject = assert(getObjectFromGUID(_purgeBagGuid))
+
+    --TODO: Maybe deck related stuff? Object deletion checks? Card locked stuff?
+
+    purgeBagObject.putObject(cardObject)
+    broadcastToAll('PURGING card \'' .. cardObject.getName() .. '\'')
+
+    return 1
+end
+
+function purgeCard(cardObject)
+    assert(cardObject.tag == 'Card')
+
+    table.insert(_purgeCardQueue, cardObject)
+    startLuaCoroutine(self, '_purgeCardCoroutine')
+end
+
+local function _jacexHeroAbility(owningObject) --Sol Hero
+    _strategyCardHelper.returnJaceXCommandTokens()
+
+    if owningObject.tag == 'Card' then
+        purgeCard(owningObject)
+    end
+end
+
+local function _procynHeroAbility() --Empyrean Hero
+
+end
+
+local function _carrionHeroAbility() --Vuil'Raith Hero
+
+end
+
+local function _applyContextMenuItems(card)
+    assert(card.tag == 'Card')
+
+    local factionCardAbilityFunc = _factionCardNameToAbilityFunc and _factionCardNameToAbilityFunc[card.getName()] or false
+
+    if factionCardAbilityFunc then
+        card.addContextMenuItem(factionCardAbilityFunc.name, function() factionCardAbilityFunc.method(card) end, false)
+    end
+end
+
+function onObjectSpawn(object)
+    if object and object.tag == 'Card' then
+        _applyContextMenuItems(object)
+    end
+end
+
 function onLoad(saveState)
     self.setColorTint({ r = 0.25, g = 0.25, b = 0.25 })
     self.setScale({ x = 2, y = 0.01, z = 2 })
@@ -1042,6 +1105,18 @@ function onLoad(saveState)
     for factionName, attributes in pairs(_factionAttributes) do
         attributes.name = factionName
     end
+
+    _factionCardNameToAbilityFunc = {}
+    _factionCardNameToAbilityFunc['Jace X, 4th Air Legion'] = { name = 'Helio Cmd. Array', method = _jacexHeroAbility }
+    
+    local function delayedApplyContextMenuItems()
+        for _, object in ipairs(getAllObjects()) do
+            if object.tag == 'Card' then
+                _applyContextMenuItems(object)
+            end
+        end
+    end
+    Wait.frames(delayedApplyContextMenuItems, 7)
 end
 
 function onSave()
