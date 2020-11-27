@@ -231,6 +231,18 @@ function isFrontierToken(object)
     return object.tag == 'Tile' and object.getName() == 'Frontier Token'
 end
 
+function getAllFrontierTokens()
+    local frontierTokens = {}
+
+    for _, object in ipairs(getAllObjects()) do
+        if isFrontierToken(object) then
+            table.insert(frontierTokens, object)
+        end
+    end
+
+    return frontierTokens
+end
+
 -------------------------------------------------------------------------------
 
 -- Default position is slightly right of center
@@ -260,14 +272,14 @@ function placeFrontierTokens()
             table.insert(emptySystemObjects, object)
         -- Collect all current frontier tokens
         elseif isFrontierToken(object) then
-            frontierTokenObjectsToPosition[object] = object.getPosition()
+            frontierTokenObjectsToPosition[object.getGUID()] = object.getPosition()
         end
     end
 
     -- Find set of system tiles containing frontier tokens
     local frontierTokenObjectsToSystem = _systemHelper.systemsFromPositions(frontierTokenObjectsToPosition)
     local frontierContainingSystems = {}
-    for frontierTokenObject, systemTile in ipairs(frontierTokenObjectsToSystem) do
+    for frontierTokenObject, systemTile in pairs(frontierTokenObjectsToSystem) do
         if systemTile then
             frontierContainingSystems[systemTile.guid] = true
         end

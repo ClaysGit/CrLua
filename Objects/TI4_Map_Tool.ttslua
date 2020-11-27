@@ -696,7 +696,7 @@ function placeCardsCoroutine()
                 coroutine.yield(0)
             end
         else
-            broadcastToAll('Missing card for "' .. planet.name .. '"', 'Red')
+            broadcastToAll('Missing card for "' .. planetName .. '"', 'Red')
         end
     end
 

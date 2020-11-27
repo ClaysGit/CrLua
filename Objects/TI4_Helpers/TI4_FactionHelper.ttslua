@@ -34,6 +34,8 @@ end
 local _zoneHelper = getHelperClient('TI4_ZONE_HELPER')
 local _strategyCardHelper = getHelperClient('TI4_STRATEGY_CARD_HELPER')
 local _exploreHelper = getHelperClient('TI4_EXPLORE_HELPER')
+local _systemHelper = getHelperClient('TI4_SYSTEM_HELPER')
+local _unitHelper = getHelperClient('TI4_UNIT_HELPER')
 
 -- Per-faction attributes.  This helper will also add the following fields:
 -- - color (string) or nil if not in use.
@@ -1178,12 +1180,104 @@ local function _jacexHeroAbility(owningObject) --Sol Hero
     end
 end
 
-local function _procynHeroAbility(owningObject) --Empyrean Hero
+local _procynHeroAbilityOwningObjectQueue = {}
+function _procynHeroAbilityCoroutine()
+    local owningObject = assert(table.remove(_procynHeroAbilityOwningObjectQueue))
+
     _exploreHelper.placeFrontierTokens()
 
+    -- Wait for frontier tokens to land before exploring them.
+    local waitUntil = Time.time + 3
+    while Time.time < waitUntil do
+        coroutine.yield(0)
+    end
+
+    --Map frontier tokens to system they're sitting on
+    local frontierTokens = _exploreHelper.getAllFrontierTokens()
+    local frontierTokenToPosition = {}
+    for _, token in ipairs(frontierTokens) do
+        frontierTokenToPosition[token] = token.getPosition()
+    end
+
+    local frontierTokenToSystem = _systemHelper.systemsFromPositions(frontierTokenToPosition)
+
+    --Find all units
+    local allUnits = _unitHelper.getUnits()
+    
+    --Find faction owning this hero ability (and it's color)
+    local factionTokenName = false
+    local factionColor = false
+    for color, faction in pairs(allFactions()) do
+        if faction.hero == 'Conservator Procyon' then
+            factionTokenName = faction.tokenName
+            factionColor = color
+            break
+        end
+    end
+    assert(factionTokenName and factionColor, 'Multiverse Shift: Placed Frontier Tokens, but cannot explore them with missing owning faction.')
+
+    --Filter down to owning faction ships
+    --NOTE: Can skip units lacking faction/color; they'll be alongside other units.
+    local factionShipToPosition = {}
+    for _, unit in ipairs(allUnits) do
+        if unit.unitType ~= 'Infantry' and unit.unitType ~= 'Mech' then --ships only
+            if unit.factionTokenName and unit.factionTokenName == factionTokenName then
+                factionShipToPosition[unit.guid] = unit.position
+            elseif unit.color and unit.color == factionColor then
+                factionShipToPosition[unit.guid] = unit.position
+            end
+        end
+    end
+
+    --Find each system containing owning faction ship
+    local shipToSystem = _systemHelper.systemsFromPositions(factionShipToPosition)
+    local systemsWithFactionShipsSet = {}
+    for ship, system in pairs(shipToSystem) do
+        systemsWithFactionShipsSet[system.guid] = true
+    end
+
+    --For each system containing a frontier token AND owning faction ship, highlight the system tile
+    local explorableTokensToSystem = {}
+    local systemsToExplore = false
+    for token, system in pairs(frontierTokenToSystem) do
+        if systemsWithFactionShipsSet[system.guid] then
+            explorableTokensToSystem[token] = system
+            systemsToExplore = true
+        end
+    end
+
+    -- Purge card before sitting in the blink loop
     if owningObject.tag == 'Card' then
         purgeCard(owningObject)
     end
+
+    -- While there are still systems to explore, blink those system tiles with the player color (2 minute timeout)
+    local timeout = Time.time + 120
+    while Time.time < timeout and systemsToExplore do
+        systemsToExplore = false
+        for token, system in pairs(explorableTokensToSystem) do
+            -- See if token is still on table
+            if getObjectFromGUID(token.guid) then
+                local systemObject = getObjectFromGUID(system.guid)
+
+                systemObject.highlightOn(factionColor, 1)
+                systemsToExplore = true
+            end
+        end
+
+        -- Wait 2 seconds before repeating (1 sec on, 1 sec off)
+        local blinkWait = Time.time + 2
+        while Time.time < blinkWait do
+            coroutine.yield(0)
+        end
+    end
+
+    return 1
+end
+
+local function _procynHeroAbility(owningObject) --Empyrean Hero
+    table.insert(_procynHeroAbilityOwningObjectQueue, owningObject)
+    startLuaCoroutine(self, '_procynHeroAbilityCoroutine')
 end
 
 local function _carrionHeroAbility(owningObject) --Vuil'Raith Hero
