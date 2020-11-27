@@ -48,7 +48,7 @@ local FACTION_ID_AND_TOKEN_NAMES = {
     { id = 'Sardakk', tokenName = "Sardakk N'orr", },
     { id = 'Titans', tokenName = 'Titans of Ul', pok = true },
     { id = 'JolNar', tokenName = 'Universities of Jol-Nar' },
-    { id = "VuilRaith", tokenName = "Vuil'Raith Cabal", pok = true },
+    { id = "Vuilraith", tokenName = "Vuil'raith Cabal", pok = true },
     { id = 'Winnu', tokenName = 'Winnu' },
     { id = 'Xxcha', tokenName = 'Xxcha Kingdom' },
     { id = 'Yin', tokenName = 'Yin Brotherhood' },
