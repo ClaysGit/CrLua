@@ -1,7 +1,7 @@
 -- @author Darrell for context menu stuff
 -- @author Milty for adapting to exploration
 
-local explorationBagGUID = '763340'
+local explorationBagGUID = '600bdd'
 local attachmentCardToTokenMap = {
     ["Propulsion Research Facility - Technology Specialty"] = {"Blue Tech Specialty Token"},
     ["Cybernetic Research Facility - Technology Specialty"] = {"Yellow Tech Specialty Token"},
@@ -208,5 +208,6 @@ function isSystemTile(object)
 end
 
 function isFrontierToken(object)
-    return object.tag == 'Generic' and object.getName() == 'Frontier Token'
+    return object.tag == 'Tile' and object.getName() == 'Frontier Token'
+end
 end

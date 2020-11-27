@@ -398,13 +398,13 @@ local DECKS = {
     },
     ['Industrial Exploration'] = {
         transform = {
-            parent = 'Exploration Mat',
+            parent = 'Explore2 Mat',
             deck = {
-              position = { x = -2.5, y = 0.26, z = -1.75},
-              rotation = { x = 0, y = 0, z = 180 },
+                position = { x = 2.81, y = 0.26, z = -1.86 },
+                rotation = { x = 0, y = 0, z = 180 },
             },
             discard = {
-                position = {x = -2.5, y = 0.26, z = 1.75},
+                position = { x = 2.81, y = 0.26, z = 2.53 },
                 rotation = { x = 0, y = 0, z = 0 },
             }
         },
@@ -435,13 +435,13 @@ local DECKS = {
     },
     ['Hazardous Exploration'] = {
         transform = {
-            parent = 'Exploration Mat',
+            parent = 'Explore1 Mat',
             deck = {
-                position = { x = 0, y = 0.26, z = -1.75},
+                position = { x = -2.81, y = 0.26, z = -1.86 },
                 rotation = { x = 0, y = 0, z = 180 },
             },
             discard = {
-                position = {x = 0, y = 0.26, z = 1.75},
+                position = { x = -2.81, y = 0, z = 2.53 },
                 rotation = { x = 0, y = 0, z = 0 },
             }
         },
@@ -472,13 +472,13 @@ local DECKS = {
     },
     ['Cultural Exploration'] = {
         transform = {
-            parent = 'Exploration Mat',
+            parent = 'Explore1 Mat',
             deck = {
-                position = { x = 2.5, y = 0.26, z = -1.75},
+                position = { x = 0.00, y = 0.26, z = -1.86 },
                 rotation = { x = 0, y = 0, z = 180 },
             },
             discard = {
-                position = {x = 2.5, y = 0.26, z = 1.75},
+                position = { x = 0.0, y = 0.26, z = 2.53 },
                 rotation = { x = 0, y = 0, z = 0 },
             }
         },
@@ -509,13 +509,13 @@ local DECKS = {
     },
     ['Frontier Exploration'] = {
         transform = {
-            parent = 'Exploration Mat',
+            parent = 'Explore1 Mat',
             deck = {
-                position = { x = -5, y = 0.26, z = -1.75},
+                position = { x = 2.81, y = 0.26, z = -1.86 },
                 rotation = { x = 0, y = 0, z = 180 },
             },
             discard = {
-                position = {x  = -5, y = 0.26, z = 1.75},
+                position = { x = 2.81, y = 0.26, z = 2.53 },
                 rotation = { x = 0, y = 0, z = 0 },
             }
         },
@@ -540,15 +540,11 @@ local DECKS = {
     },
     ['Relics'] = {
         transform = {
-            parent = 'Exploration Mat',
+            parent = 'Explore2 Mat',
             deck = {
-                position = { x = 5, y = 0.26, z = -1.75} ,
+                position = { x = 0.00, y = 0.26, z = -1.86 },
                 rotation = { x = 0, y = 0, z = 180 },
             },
-            discard = {
-                position = { x = 5, y = 0.26, z = 1.75 },
-                rotation = { x = 0, y = 0, z = 0 },
-            }
         },
         cardNames = {
             pok = {
