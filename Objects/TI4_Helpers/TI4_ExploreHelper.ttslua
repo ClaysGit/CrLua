@@ -252,7 +252,7 @@ function placeFrontierTokens()
 
     local guidToSystem = _systemHelper.systems()
     local emptySystemObjects = {}
-    local frontierTokenObjects = {}
+    local frontierTokenObjectsToPosition = {}
     for _, object in ipairs(getAllObjects()) do
         local system = guidToSystem[object.getGUID()]
         -- Collect all system tiles that are 'empty'
@@ -260,14 +260,14 @@ function placeFrontierTokens()
             table.insert(emptySystemObjects, object)
         -- Collect all current frontier tokens
         elseif isFrontierToken(object) then
-            table.insert(frontierTokenObjects, object)
+            frontierTokenObjectsToPosition[object] = object.getPosition()
         end
     end
 
     -- Find set of system tiles containing frontier tokens
+    local frontierTokenObjectsToSystem = _systemHelper.systemsFromPositions(frontierTokenObjectsToPosition)
     local frontierContainingSystems = {}
-    for _, frontierTokenObject in ipairs(frontierTokenObjects) do
-        local systemTile = _systemHelper.systemFromPosition(frontierTokenObject.getPosition())
+    for frontierTokenObject, systemTile in ipairs(frontierTokenObjectsToSystem) do
         if systemTile then
             frontierContainingSystems[systemTile.guid] = true
         end
@@ -287,6 +287,7 @@ end
 function retrieveFrontierTokens()
     local frontierTokenBag = assert(getFrontierTokenBag())
 
+    -- Grab all frontier tokens, from everywhere.
     for _, object in ipairs(getAllObjects()) do
         if isFrontierToken(object) then
             frontierTokenBag.putObject(object)

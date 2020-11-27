@@ -1162,7 +1162,7 @@ end
 
 local function _jacexHeroAbility(owningObject) --Sol Hero
     local factionTokenName = false
-    for _, faction in pairs(allFactions(true)) do
+    for _, faction in pairs(allFactions()) do
         if faction.hero == 'Jace X, 4th Air Legion' then
             factionTokenName = faction.tokenName
             break

@@ -538,6 +538,18 @@ function systemFromPosition(position)
     end
 end
 
+-- Get systems at positions
+-- @param Map of arbitrary key to {xyz} position
+-- @return Map of same arbitrary key to system attributes or false
+function systemsFromPositions(keysToPositions)
+    local keysToSystems = {}
+    for key, position in pairs(keysToPositions) do
+        keysToSystems[key] = systemFromPosition(position) or false
+    end
+
+    return keysToSystems
+end
+
 --- Get system with the given tile number.
 -- @param tile (number).
 -- @return system table.
