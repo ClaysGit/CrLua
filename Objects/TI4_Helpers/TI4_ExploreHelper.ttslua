@@ -228,7 +228,7 @@ function isSystemTile(object)
 end
 
 function isFrontierToken(object)
-    return object.tag == 'Generic' and object.getName() == 'Frontier Token'
+    return object.tag == 'Tile' and object.getName() == 'Frontier Token'
 end
 
 -------------------------------------------------------------------------------
