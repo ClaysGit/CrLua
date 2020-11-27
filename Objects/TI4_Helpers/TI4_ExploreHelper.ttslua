@@ -210,4 +210,3 @@ end
 function isFrontierToken(object)
     return object.tag == 'Tile' and object.getName() == 'Frontier Token'
 end
-end
