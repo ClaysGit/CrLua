@@ -33,6 +33,7 @@ function getHelperClient(helperObjectName)
 end
 local _zoneHelper = getHelperClient('TI4_ZONE_HELPER')
 local _strategyCardHelper = getHelperClient('TI4_STRATEGY_CARD_HELPER')
+local _exploreHelper = getHelperClient('TI4_EXPLORE_HELPER')
 
 -- Per-faction attributes.  This helper will also add the following fields:
 -- - color (string) or nil if not in use.
@@ -1125,7 +1126,22 @@ end
 
 -------------------------------------------------------------------------------
 
-local _purgeBagGuid = '2a1c64' --TODO: Will need this updated
+local _purgeBagObject = nil
+function getPurgeBag()
+    if _purgeBagObject then
+        return _purgeBagObject
+    end
+
+    local purgeBagName = 'Purge Bag'
+    for _, object in ipairs(getAllObjects()) do
+        if object.tag == 'Bag' and string.match(object.getName(), '^' .. purgeBagName .. '$') then
+            _purgeBagObject = object
+            return _purgeBagObject
+        end
+    end
+
+    assert(false, 'Unable to locate bag with name "' .. purgeBagName .. '"')
+end
 
 local _factionCardNameToAbilityFunc = false
 local _purgeCardQueue = {}
@@ -1136,7 +1152,7 @@ function purgeCard(cardObject)
     local inHandGuidSet = _zoneHelper.inHand()
     assert(not inHandGuidSet[cardObject.getGUID()], 'Cannot purge cards that are in a player\'s hand.')
 
-    local purgeBagObject = assert(getObjectFromGUID(_purgeBagGuid))
+    local purgeBagObject = assert(getPurgeBag())
 
     --TODO: Maybe deck related stuff? Object deletion checks? Card locked stuff?
 
@@ -1162,12 +1178,27 @@ local function _jacexHeroAbility(owningObject) --Sol Hero
     end
 end
 
-local function _procynHeroAbility() --Empyrean Hero
+local function _procynHeroAbility(owningObject) --Empyrean Hero
+    _exploreHelper.placeFrontierTokens()
 
+    if owningObject.tag == 'Card' then
+        purgeCard(owningObject)
+    end
 end
 
-local function _carrionHeroAbility() --Vuil'Raith Hero
+local function _carrionHeroAbility(owningObject) --Vuil'Raith Hero
+    --TODO
+    --Find each dimensional tear token
+    --Find system tiles those tokens are on
+    --Find set of system tiles including above and adjacent to above (including wormholes)
+    --Find all units on those systems
+    --Filter units down to non-fighter ships
+    --For each system, do rolls. Track results, print them by system+unitType.
+    -- eg. 'Bereg / Lirta IV: Cruiser has 1 capture (2#, 4, 9); Dreadnought has 0 captures (6).'
 
+    if owningObject.tag == 'Card' then
+        purgeCard(owningObject)
+    end
 end
 
 local function _applyContextMenuItems(card)
@@ -1213,6 +1244,8 @@ function onLoad(saveState)
 
     _factionCardNameToAbilityFunc = {}
     _factionCardNameToAbilityFunc['Jace X, 4th Air Legion'] = { name = 'Helio Cmd. Array', method = _jacexHeroAbility }
+    _factionCardNameToAbilityFunc['Conservator Procyon'] = { name = 'Multiverse Shift', method = _procynHeroAbility }
+    _factionCardNameToAbilityFunc['It Feeds On Carrion'] = { name = 'Dimensional Anchor', method = _carrionHeroAbility }
     
     local function delayedApplyContextMenuItems()
         for _, object in ipairs(getAllObjects()) do
