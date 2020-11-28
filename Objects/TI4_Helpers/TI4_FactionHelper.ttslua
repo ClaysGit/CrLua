@@ -54,7 +54,7 @@ local _factionAttributes = {
         abilities = { 'Mitosis' },
         units = { 'Letani Warrior I', 'Letani Warrior II', 'Letani Behemoth' },
         commander = 'Dirzuga Rophal',
-        hero = 'Letania Miasmiala'
+        hero = 'Letani Miasmiala'
     },
 
     ['The Barony Of Letnev'] = {
@@ -1162,10 +1162,64 @@ function purgeCard(cardObject)
     broadcastToAll('PURGING card \'' .. cardObject.getName() .. '\'')
 end
 
-local function _jacexHeroAbility(owningObject) --Sol Hero
+local function _heroCardCanBeUsed(cardObject, usingColor)
+    if cardObject.tag ~= 'Card' then
+        print('Cannot use ' .. cardObject.getName() .. '. Hero abilities can only be used from cards.')
+        return false
+    end
+
+    if cardObject.is_face_down then
+        print('Cannot use ' .. cardObject.getName() .. '. Card is facedown; did you unlock it?')
+        return false
+    end
+
+    local inHandGuidSet = _zoneHelper.inHand()
+    if inHandGuidSet[cardObject.getGUID()] then
+        print('Cannot use ' .. cardObject.getName() .. '. Hero cards cannot be used while in your hand.')
+        return false
+    end
+
+    local factionColor = false
+    for color, faction in pairs(allFactions(false)) do
+        if faction.hero == cardObject.getName() then
+            factionColor = color
+            break
+        end
+    end
+    if not factionColor then
+        print('Cannot use ' .. cardObject.getName() .. '. No seated faction has this Hero.')
+        return false
+    end
+
+    if factionColor ~= usingColor and usingColor ~= 'Black' then
+        print('Cannot use ' .. cardObject.getName() .. '. ' .. usingColor .. ' cannot use ' .. factionColor .. '\'s Hero card.')
+        return false
+    end
+
+    -- Any other technical conditions that would prevent us from purging the card or executing the ability?
+    -- Any other gameplay situations that should prevent the Hero card from being used?
+
+    return true
+end
+
+local function _purgeHeroCard(owningObject, clickingColor)
+    if not _heroCardCanBeUsed(owningObject, clickingColor) then
+        -- Function will print why card cannot be used
+        return
+    end
+
+    purgeCard(owningObject)
+end
+
+local function _jacexHeroAbility(owningObject, clickingColor) --Sol Hero
+    if not _heroCardCanBeUsed(owningObject, clickingColor) then
+        -- Function will print why card cannot be used
+        return
+    end
+
     local factionTokenName = false
-    for _, faction in pairs(allFactions()) do
-        if faction.hero == 'Jace X, 4th Air Legion' then
+    for _, faction in pairs(allFactions(false)) do
+        if faction.hero == owningObject.getName() then
             factionTokenName = faction.tokenName
             break
         end
@@ -1201,8 +1255,8 @@ function _procynHeroAbilityCoroutine()
     --Find faction owning this hero ability (and it's color)
     local factionTokenName = false
     local factionColor = false
-    for color, faction in pairs(allFactions()) do
-        if faction.hero == 'Conservator Procyon' then
+    for color, faction in pairs(allFactions(false)) do
+        if faction.hero == owningObject.getName() then
             factionTokenName = faction.tokenName
             factionColor = color
             break
@@ -1278,7 +1332,12 @@ function _procynHeroAbilityCoroutine()
     return 1
 end
 
-local function _procynHeroAbility(owningObject) --Empyrean Hero
+local function _procynHeroAbility(owningObject, clickingColor) --Empyrean Hero
+    if not _heroCardCanBeUsed(owningObject, clickingColor) then
+        -- Function will print why card cannot be used
+        return
+    end
+
     table.insert(_procynHeroAbilityOwningObjectQueue, owningObject)
     startLuaCoroutine(self, '_procynHeroAbilityCoroutine')
 end
@@ -1295,8 +1354,8 @@ function _carrionHeroAbilityCoroutine()
     --Find faction owning this hero ability (and it's color)
     local factionTokenName = false
     local factionColor = false
-    for color, faction in pairs(allFactions()) do
-        if faction.hero == 'It Feeds on Carrion' then
+    for color, faction in pairs(allFactions(false)) do
+        if faction.hero == owningObject.getName() then
             factionTokenName = faction.tokenName
             factionColor = color
             break
@@ -1597,8 +1656,6 @@ function _carrionHeroAbilityCoroutine()
         rollResults = _processRollResults(diceToShip)
         coroutine.yield(0)
 
-        print('current results status: ' .. (rollResults.waitingOnResults and 'true' or 'false'))
-
         while blinkTransitionTime > Time.time do
             coroutine.yield(0)
         end
@@ -1619,7 +1676,13 @@ function _carrionHeroAbilityCoroutine()
             local resultsForType = unitTypeToResultRolls[ship.unitType]
             if not resultsForType then
                 resultsForType = {}
-                unitTypeToResultRolls[ship.unitType] = resultsForType
+                local descriptiveUnitType = ship.unitType
+                if ship.factionTokenName then
+                    descriptiveUnitType = ship.factionTokenName .. '\'s ' .. descriptiveUnitType
+                elseif ship.color then
+                    descriptiveUnitType = ship.color .. ' ' .. descriptiveUnitType
+                end
+                unitTypeToResultRolls[descriptiveUnitType] = resultsForType
             end
 
             table.insert(resultsForType, assert(shipToResult[ship]))
@@ -1725,7 +1788,12 @@ function dimensionalanchor_rollDiceCoroutine()
     return 1
 end
 
-local function _carrionHeroAbility(owningObject) --Vuil'Raith Hero
+local function _carrionHeroAbility(owningObject, clickingColor) --Vuil'Raith Hero
+    if not _heroCardCanBeUsed(owningObject, clickingColor) then
+        -- Function will print why card cannot be used
+        return
+    end
+
     table.insert(_carrionHeroAbilityOwningObjectQueue, owningObject)
     startLuaCoroutine(self, '_carrionHeroAbilityCoroutine')
 end
@@ -1736,7 +1804,16 @@ local function _applyContextMenuItems(card)
     local factionCardAbilityFunc = _factionCardNameToAbilityFunc and _factionCardNameToAbilityFunc[card.getName()] or false
 
     if factionCardAbilityFunc then
-        card.addContextMenuItem(factionCardAbilityFunc.name, function() factionCardAbilityFunc.method(card) end, false)
+        card.addContextMenuItem(factionCardAbilityFunc.name, function(clickingColor) factionCardAbilityFunc.method(card, clickingColor) end, false)
+    end
+
+    local colorToFactions = allFactions(false)
+    for _, faction in pairs(colorToFactions) do
+        if faction.hero == card.getName() then
+            -- Most heroes are manually handled, and even the automated ones could be manually handled.
+            -- Offer a simple Purge option on all faction hero cards.
+            card.addContextMenuItem("Purge", function(clickingColor) _purgeHeroCard(card, clickingColor) end, false)
+        end
     end
 end
 
