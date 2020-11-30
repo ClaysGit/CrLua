@@ -564,7 +564,7 @@ function systemsFromPositions(keysToPositions)
         if hex then
             -- Warn (without failing) when a system already occupies this hex position (meaning the tiles are overlapping).
             if systemHexToGuid[hex] then
-                print('WARNING: System tiles are overlapping at hex coordinate ' .. hex .. ' (' .. _systems[systemGuid].name .. ' and ' .. _systems[systemHexToGuid[hex]] .. '). Some functions may be affected.')
+                print('WARNING: System tiles are overlapping at hex coordinate ' .. hex .. ' (' .. _systems[systemGuid].string .. ' and ' .. _systems[systemHexToGuid[hex]].string .. '). Some functions may be affected.')
             else
                 systemHexToGuid[hex] = systemGuid
             end
