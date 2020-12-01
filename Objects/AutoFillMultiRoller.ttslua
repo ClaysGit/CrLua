@@ -990,7 +990,10 @@ function autoFillCoroutine()
         extraModifiers = extraUnitModifiers or false,
         rollObjectGuid = _rollOnSelf and self.getGUID(),
     })
-    if not doClick then
+    if doClick then
+        -- Clear the toggleActive effects that this roll consumes
+        _unitHelper.clearToggleActiveModifiers(unitTypeToAttrs._unitModifiers)
+    else
         printToAll('AutoFill: left click to fill and roll.', params.clickerColor)
     end
 

@@ -1492,6 +1492,24 @@ function getColorToUnitModifiers()
     return colorToUnitModifiers
 end
 
+function clearToggleActiveModifiers(unitModifiers)
+    local toggleActiveSet = {}
+    for _, modifier in ipairs(unitModifiers) do
+        if modifier.toggleActive then
+            toggleActiveSet[modifier.name] = true
+        end
+    end
+
+    for _, object in ipairs(getAllObjects()) do
+        -- Toggle if active
+        if toggleActiveSet[object.getName()] then
+            if _isToggleActiveCardActive(object) then
+                _onToggleActiveCard(object)
+            end
+        end
+    end
+end
+
 -------------------------------------------------------------------------------
 
 local _objectNameToUnitData = false
@@ -1748,7 +1766,7 @@ end
 
 local TOGGLE_ACTIVE_STATE = {
     idle = {
-        label = 'Idle',
+        label = 'Exhausted',
         buttonColor = { r = 1, g = 1, b = 1 },
         textColor = { r = 0, g = 0, b = 0 },
     },
@@ -1789,6 +1807,7 @@ function _onToggleActiveCard(buttonContainer, clickerColor, altClick)
     end
 end
 
+local _toggleActiveCardIsFlipped = {}
 function _applyToggleActiveCard(object)
     local scale = object.getScale()
     local iscale = {
@@ -1799,7 +1818,7 @@ function _applyToggleActiveCard(object)
     local bounds = object.getBoundsNormalized()
     local pos = {
         x = 0,
-        y = 1,
+        y = -1,
         z = (bounds.size.z / scale.z) / 2
     }
     object.clearButtons()
@@ -1808,7 +1827,7 @@ function _applyToggleActiveCard(object)
         function_owner = self,
         label          = TOGGLE_ACTIVE_STATE.idle.label,
         position       = pos,
-        rotation       = { x = 0, y = 0, z = 0 },
+        rotation       = { x = 0, y = 0, z = 180 },
         scale          = iscale,
         width          = 650,
         height         = 250,
@@ -1817,6 +1836,9 @@ function _applyToggleActiveCard(object)
         font_color     = TOGGLE_ACTIVE_STATE.idle.textColor,
         tooltip        = 'Toggle active'
     })
+
+    -- Missing save state
+    _toggleActiveCardIsFlipped[object.getGUID()] = _isCardFlipped(object)
 end
 
 function _applyToggleActiveCards()
@@ -1825,6 +1847,39 @@ function _applyToggleActiveCards()
             _applyToggleActiveCard(object)
         end
     end
+end
+
+function _isCardFlipped(cardObject)
+    assert(cardObject.tag == 'Card')
+
+    return cardObject.is_face_down
+end
+
+function _watchToggleActiveCardRotationCoroutine()
+    while true do
+        local nextCardStates = {}
+        for card, lastIsFlipped in pairs(_toggleActiveCardIsFlipped) do
+            local cardObject = getObjectFromGUID(card)
+
+            if cardObject then
+                local newIsFlipped = _isCardFlipped(cardObject)
+                nextCardStates[card] = newIsFlipped
+
+                if newIsFlipped and not lastIsFlipped then
+                    if not _isToggleActiveCardActive(cardObject) then
+                        _onToggleActiveCard(cardObject)
+                    end
+                end
+            end
+        end
+
+        _toggleActiveCardIsFlipped = nextCardStates
+        coroutine.yield(0)
+    end
+end
+
+function _watchToggleActiveCardRotation()
+    startLuaCoroutine(self, '_watchToggleActiveCardRotationCoroutine')
 end
 
 function onObjectSpawn(object)
@@ -1865,6 +1920,9 @@ function onLoad(saveState)
 
     -- Make toggle cards toggle-able.
     Wait.frames(_applyToggleActiveCards, 3)
+
+    -- Watch the rotation of use-on-flip cards
+    _watchToggleActiveCardRotation()
 end
 
 function _verifyTables()
