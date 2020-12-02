@@ -989,6 +989,7 @@ function autoFillCoroutine()
         rollType = doClick and autofillTypeAttributes.rollType or false,
         extraModifiers = extraUnitModifiers or false,
         rollObjectGuid = _rollOnSelf and self.getGUID(),
+        opponentUnitTypeToCount = enemyUnitTypeToCount
     })
     if not doClick then
         printToAll('AutoFill: left click to fill and roll.', params.clickerColor)

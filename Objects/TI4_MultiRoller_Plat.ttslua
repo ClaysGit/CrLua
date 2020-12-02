@@ -94,6 +94,7 @@ local _unitAttrs = false
 local _getUnitDataLastRefreshFrame = false
 
 local _injectExtraUnitUpgrades = false
+local _injectOpponentUnitTypeToCount = false
 local _injectExtraModifiers = false
 local _updateWarnings = false
 
@@ -1068,7 +1069,73 @@ function Roller_RollDiceCoroutine()
     end
     coroutine.yield(0)
 
+    -- Reroll misses for any dice that have available rerolls
+    local conductRerolls = false
+    local rerollingDiceByType = {}
+    for _, dice in ipairs(Roller._dice) do
+        local availableRerolls = dice.rerollMisses or 0
+        if availableRerolls > 0 then
+            dice._rerollGuids = {}
+            for i, guid in ipairs(dice._guids) do
+                -- These prooooobably sync up by index. Ensure they do before any merges.
+                local rollValue = dice._rollValues[i]
+
+                if rollValue < dice.hitValue then
+                    table.insert(dice._rerollGuids, guid)
+                    conductRerolls = true
+                    availableRerolls = availableRerolls - 1
+                    if availableRerolls == 0 then
+                        break
+                    end
+                end
+            end
+
+            if #dice._rerollGuids > 0 then
+                dice._originalRollValues = {}
+                -- Copy
+                for _, origRollValue in ipairs(dice._rollValues) do
+                    table.insert(dice._originalRollValues, origRollValue)
+                end
+                dice._rollValues = {}
+            end
+        end
+    end
+
+    -- For any rerolls found, roll the dice! And watch for results.
+    if conductRerolls then
+        for _, dice in ipairs(Roller._dice) do
+            for _, guid in ipairs(dice._rerollGuids or {}) do
+                local die = getObjectFromGUID(guid)
+                die.interactable = false
+                die.roll()
+            end
+        end
+        coroutine.yield(0)
+
+        local timeout = Time.time + 3
+        for _, dice in ipairs(Roller._dice) do
+            dice._rollValues = {}
+            for _, guid in ipairs(dice._guids) do
+                local die = false
+                while true do
+                    die = getObjectFromGUID(guid)  -- re-get every time, can be deleted
+                    if die and (not die.resting) and Time.time < timeout then
+                        coroutine.yield(0)
+                    else
+                        break
+                    end
+                end
+                if die then
+                    table.insert(dice._rollValues, die.getValue() or 0)
+                    die.interactable = true
+                end
+            end
+        end
+        coroutine.yield(0)
+    end
+
     -- Generate report.
+    local specialMessages = {}
     local message = {}
     local hits = 0
     for _, dice in ipairs(Roller._dice) do
@@ -1079,6 +1146,7 @@ function Roller_RollDiceCoroutine()
         item = item .. ']: '
 
         local rollValues = {}
+        local critCount = 0
         local unitHitCount = 0
         for _, rollValue in ipairs(dice._rollValues) do
             local suffix = ''
@@ -1087,20 +1155,42 @@ function Roller_RollDiceCoroutine()
                 unitHitCount = unitHitCount + 1
                 suffix = '#'
             end
-            if dice.critCount and dice.critValue and (rollValue >= dice.critValue) then
-                hits = hits + dice.critCount
-                unitHitCount = unitHitCount + dice.critCount
-                for _ = 1, dice.critCount do
-                    suffix = suffix .. '#'
+            if (dice.critCount or dice.critMessagePrefix) and dice.critValue and (rollValue >= dice.critValue) then
+                if dice.critCount then
+                    hits = hits + dice.critCount
+                    unitHitCount = unitHitCount + dice.critCount
+                    for _ = 1, dice.critCount do
+                        suffix = suffix .. '#'
+                    end
+                end
+                if dice.critMessagePrefix then
+                    critCount = critCount + 1
                 end
             end
             table.insert(rollValues, rollValue .. suffix)
             setHitCount(dice.unitId, unitHitCount)
         end
+
+        if dice._originalRollValues and dice.rerollMisses then
+            local availableRerolls = dice.rerollMisses == 999 and 'all' or dice.rerollMisses
+            table.insert(specialMessages, dice.unitName .. ' rolled values before automatic reroll of ' .. availableRerolls .. ' misses: ' .. table.concat(dice._originalRollValues, ', '))
+        end
+
         table.insert(message, dice.unitName .. ' ' .. item .. table.concat(rollValues, ', '))
+
+        if critCount > 0 and dice.critMessagePrefix then
+            table.insert(specialMessages, dice.critMessagePrefix .. critCount)
+        end
+
+        if dice.availableTargets and dice.availableTargets >= 0 then
+            table.insert(specialMessages, math.max(hits - dice.availableTargets, 0) .. ' hits in excess of available targets.')
+        end
     end
     broadcastToAll(playerName .. ' rolled: [ffffff]' .. table.concat(message, ', '), playerColor)
     broadcastToAll(playerName .. ' landed ' .. hits .. ' hit' .. (hits == 1 and '' or 's') .. '.', playerColor)
+    for _, message in ipairs(specialMessages) do
+        broadcastToAll(playerName .. ': ' .. message)
+    end
 
     Roller._setRollInProgress(false)
     return 1
@@ -1139,6 +1229,9 @@ function rollDiceForAbility(player, ability)
                 hitValue = abilityAttrs.hit,
                 critCount = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.count,
                 critValue = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.value,
+                critMessagePrefix = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.messagePrefix,
+                availableTargets = abilityAttrs.availableTargets,
+                rerollMisses = abilityAttrs.rerollMisses or 0,
                 unitName = unit_stats.name,
                 unitId = unit_id
             })
@@ -1280,7 +1373,7 @@ function getUnitData(force)
         myUnitTypeToCount = unitTypeToCount,
         opponentColor = _vsColor,
         opponentUnitModifiers = opponentModifiers,
-        opponentUnitTypeToCount = false
+        opponentUnitTypeToCount = _injectOpponentUnitTypeToCount
     })
 
     -- Make sure all units have a name and image.
@@ -1310,6 +1403,7 @@ function inject(params)
 
     -- Add these when gathering unit modifiers.
     _injectExtraModifiers = params.extraModifiers or false
+    _injectOpponentUnitTypeToCount = params.opponentUnitTypeToCount or false
     _rollObjectOverride = params.rollObjectGuid and getObjectFromGUID(params.rollObjectGuid)
 
     for _, unitType in ipairs(UNIT_TYPES) do
@@ -1330,6 +1424,7 @@ function inject(params)
 
     -- Require click handling absorb these this frame, otherwise lost.
     _injectExtraModifiers = false
+    _injectOpponentUnitTypeToCount = false
     _rollObjectOverride = false
 end
 
