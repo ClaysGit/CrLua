@@ -1,10 +1,7 @@
 -- @author Darrell for context menu stuff
 -- @author Milty for adapting to exploration
 
-<<<<<<< HEAD
-local explorationBagGUID = '600bdd'
-=======
->>>>>>> master
+
 local attachmentCardToTokenMap = {
     ["Propulsion Research Facility"] = {"Propulsion Research Facility Token"}, -- 1r1i or blue
     ["Cybernetic Research Facility"] = {"Cybernetic Research Facility Token"}, -- 1r1i or yellow
