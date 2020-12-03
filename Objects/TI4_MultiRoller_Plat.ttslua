@@ -763,6 +763,11 @@ function setUnitCount(unit, count)
     assert(type(unit) == 'string' and type(count) == 'number')
 
     -- Restrict to allowable unit types
+    -- Non-basic unit types may be dynamically injected;
+    -- we don't want to keep (and subsequently override)
+    -- any dynamic state. So when setting up a roll from
+    -- the "inject" method, ensure we are only tracking
+    -- the known unit types.
     for _, unitType in ipairs(UNIT_TYPES) do
         if unitType == unit then
             self.UI.setValue(unit .. ".unitCount", count)
