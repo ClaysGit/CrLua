@@ -569,7 +569,9 @@ local _unitModifiers = {
         apply = function(unitAttrs, params)
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.groundCombat and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.groundCombat and unitCount > 0 then
                     if (not best) or attr.groundCombat.hit < best.groundCombat.hit then
                         best = attr
                     end
@@ -763,7 +765,9 @@ local _unitModifiers = {
         apply = function(unitAttrs, params)
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.spaceCannon and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.spaceCannon and unitCount > 0 then
                     if (not best) or attr.spaceCannon.hit < best.spaceCannon.hit then
                         best = attr
                     end
@@ -774,7 +778,9 @@ local _unitModifiers = {
             end
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.bombardment and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.bombardment and unitCount > 0 then
                     if (not best) or attr.bombardment.hit < best.bombardment.hit then
                         best = attr
                     end
@@ -867,9 +873,11 @@ local _unitModifiers = {
         type = TYPE.CHOOSE,
         excludeFaction = 'The Argent Flight',
         apply = function(unitAttrs, params)
-            best = false
+            local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.antiFighterBarrage and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.antiFighterBarrage and unitCount > 0 then
                     if (not best) or (attr.antiFighterBarrage.hit < best.antiFighterBarrage.hit) then
                         best = attr
                     end
@@ -878,9 +886,11 @@ local _unitModifiers = {
             if best then
                 best.antiFighterBarrage.extraDice = (best.antiFighterBarrage.extraDice or 0) + 1
             end
-            best = false
+            local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.bombardment and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.bombardment and unitCount > 0 then
                     if (not best) or (attr.bombardment.hit < best.bombardment.hit) then
                         best = attr
                     end
@@ -889,9 +899,11 @@ local _unitModifiers = {
             if best then
                 best.bombardment.extraDice = (best.bombardment.extraDice or 0) + 1
             end
-            best = false
+            local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.spaceCannon and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.spaceCannon and unitCount > 0 then
                     if (not best) or (attr.spaceCannon.hit < best.spaceCannon.hit) then
                         best = attr
                     end
@@ -1031,7 +1043,9 @@ local _unitModifiers = {
         apply = function(unitAttrs, params)
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.antiFighterBarrage and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.antiFighterBarrage and unitCount > 0 then
                     if (not best) or (attr.antiFighterBarrage.hit < best.antiFighterBarrage.hit) then
                         best = attr
                     end
@@ -1042,7 +1056,9 @@ local _unitModifiers = {
             end
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.bombardment and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.bombardment and unitCount > 0 then
                     if (not best) or (attr.bombardment.hit < best.bombardment.hit) then
                         best = attr
                     end
@@ -1053,7 +1069,9 @@ local _unitModifiers = {
             end
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.spaceCannon and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.spaceCannon and unitCount > 0 then
                     if (not best) or (attr.spaceCannon.hit < best.spaceCannon.hit) then
                         best = attr
                     end
@@ -1090,7 +1108,9 @@ local _unitModifiers = {
         apply = function(unitAttrs, params)
             local best = false
             for unitType, attr in pairs(unitAttrs) do
-                if attr.spaceCombat and (params.myUnitTypeToCount[unitType] or 0) > 0 then
+                -- Check for units present, then check for dynamically injected units, then default to 0
+                local unitCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.spaceCombat and unitCount > 0 then
                     if (not best) or (attr.spaceCombat.hit < best.spaceCombat.hit) then
                         best = attr
                     end
