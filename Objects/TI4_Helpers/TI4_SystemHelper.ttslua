@@ -231,8 +231,8 @@ local _systems = {
     ['d6fae5'] = { tile = 55, home = true, planets = {
         { name = 'Elysium', resources = 4, influence = 1 },
     }},
-    ['f252da'] = { tile = 56, home = true, planets = {
-        { name = 'The Dark', resources = 3, influence = 4 }, anomalies = { 'nebula' }
+    ['f252da'] = { tile = 56, home = true, anomalies = { 'nebula' }, planets = {
+        { name = 'The Dark', resources = 3, influence = 4 },
     }},
     ['aba183'] = { tile = 57, home = true, planets = {
         { name = 'Naazir', resources = 2, influence = 1 },
@@ -317,15 +317,37 @@ local _systems = {
     }},
 
     -- Warp zone tiles
-    ['d148cd'] = { tile = 83, hyperlane = true },
-    ['ae4418'] = { tile = 84, hyperlane = true },
-    ['3ff63d'] = { tile = 85, hyperlane = true },
-    ['14dda2'] = { tile = 86, hyperlane = true },
-    ['b5c9ac'] = { tile = 87, hyperlane = true },
-    ['d826d3'] = { tile = 88, hyperlane = true },
-    ['7cd271'] = { tile = 89, hyperlane = true },
-    ['e24a00'] = { tile = 90, hyperlane = true },
-    ['49dfeb'] = { tile = 91, hyperlane = true },
+    ['81a64a'] = { tile = 83, hyperlane = true },
+    ['bed0e0'] = { tile = 84, hyperlane = true },
+    ['a64a36'] = { tile = 85, hyperlane = true },
+    ['b34afa'] = { tile = 86, hyperlane = true },
+    ['3ccc62'] = { tile = 87, hyperlane = true },
+    ['ee4bf1'] = { tile = 88, hyperlane = true },
+    ['33e49a'] = { tile = 89, hyperlane = true },
+    ['7e7ee1'] = { tile = 90, hyperlane = true },
+    ['565980'] = { tile = 91, hyperlane = true },
+
+    -- Phil's warp zones.
+    ['3830ca'] = { tile = 1001, hyperlane = true }, -- A
+    ['5dbaf9'] = { tile = 1002, hyperlane = true }, -- A
+    ['e604ce'] = { tile = 1003, hyperlane = true }, -- B
+    ['902424'] = { tile = 1004, hyperlane = true }, -- B
+    ['903187'] = { tile = 1005, hyperlane = true }, -- G
+    ['507cb6'] = { tile = 1006, hyperlane = true }, -- G
+    ['35b72d'] = { tile = 1007, hyperlane = true },
+    ['b41a78'] = { tile = 1008, hyperlane = true },
+    ['1000e9'] = { tile = 1009, hyperlane = true },
+    ['9a71c7'] = { tile = 1010, hyperlane = true },
+    ['204530'] = { tile = 1011, hyperlane = true },
+    ['b74682'] = { tile = 1012, hyperlane = true },
+    ['1ffd34'] = { tile = 1013, hyperlane = true },
+    ['bdf753'] = { tile = 1014, hyperlane = true },
+    ['a35ea3'] = { tile = 1015, hyperlane = true },
+    ['613593'] = { tile = 1016, hyperlane = true },
+    ['2c5e05'] = { tile = 1017, hyperlane = true },
+    ['c131ce'] = { tile = 1018, hyperlane = true },
+    ['bb11c7'] = { tile = 1019, hyperlane = true },
+    ['34cbfd'] = { tile = 1020, hyperlane = true },
 
     -- Pick-A-Planet systems.
     ['0dcdee'] = { tile = 2001, planets = {{ name = 'A' }} },
