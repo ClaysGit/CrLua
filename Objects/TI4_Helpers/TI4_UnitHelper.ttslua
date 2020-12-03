@@ -804,30 +804,6 @@ local _unitModifiers = {
         end
     },
 
-    ['Raid Formation'] = {
-        description = 'ANTI-FIGHTER BARRAGE hits in excess of fighter targets cause SUSTAIN DAMAGE units to become damaged.',
-        owner = OWNER.SELF,
-        type = TYPE.MUTATE,
-        apply = function(unitAttrs, params)
-            -- This is called by automatic-fill-multiroller tool (with opponent ship context),
-            -- then later it is called again by multiroller without opponent context. To fix
-            -- this, explore injecting opponent-unitType-to-Count and using that in multiroller.
-
-            -- Ensure we have some opponent data, this 'apply' requires that minimum context.
-            if not params.opponentUnitTypeToCount then
-                return
-            end
-
-            local opponentFighterCount = params.opponentUnitTypeToCount['Fighter'] or 0
-            for unitType, attr in pairs(unitAttrs) do
-                -- This needs to be shared across all unit types...somehow.
-                if attr.antiFighterBarrage then
-                    attr.antiFighterBarrage.availableTargets = opponentFighterCount
-                end
-            end
-        end
-    },
-
     ['Regulated Conscription'] = {
         description = 'Fighters and infantry cost 1 each',
         owner = OWNER.ANY,
