@@ -1421,9 +1421,17 @@ function getColorToUnitModifiers()
 
     -- Add commanders (including Alliance and Imperia sharing).
     local colorToCommanders = _factionHelper.getColorToCommanders()
+    local toggleActiveCommanderToColor = {}
     for color, commanders in pairs(colorToCommanders) do
         for _, commander in ipairs(commanders) do
-            addModifier(color, commander)
+            local unitModifier = _unitModifiers[commander]
+            if not unitModifier or not unitModifier.toggleActive then
+                addModifier(color, commander)
+            else
+                -- Toggle Active commanders require additional checks
+                toggleActiveCommanderToColor[commander] = toggleActiveCommanderToColor[commander] or {}
+                table.insert(toggleActiveCommanderToColor[commander], color)
+            end
         end
     end
 
@@ -1499,6 +1507,15 @@ function getColorToUnitModifiers()
                 local color = _zoneHelper.zoneFromPosition(object.getPosition())
                 if sardakk and sardakk.color and sardakk.color ~= color then
                     addModifier(sardakk.color, name)
+                end
+            end
+
+            local commanderColors = toggleActiveCommanderToColor[name]
+            if commanderColors then
+                -- This object has passed any 'toggle active' checks. Add commander to specified colors.
+                -- These come from faction.commander, Alliance promissory notes, and Imperia
+                for _, color in ipairs(commanderColors) do
+                    addModifier(color, name)
                 end
             end
 
