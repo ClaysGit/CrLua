@@ -762,8 +762,15 @@ end
 
 function setUnitCount(unit, count)
     assert(type(unit) == 'string' and type(count) == 'number')
-    self.UI.setValue(unit .. ".unitCount", count)
-    _unitTypeToCount[unit] = count
+
+    -- Restrict to allowable unit types
+    for _, unitType in ipairs(UNIT_TYPES) do
+        if unitType == unit then
+            self.UI.setValue(unit .. ".unitCount", count)
+            _unitTypeToCount[unit] = count
+            return
+        end
+    end
 end
 
 function getUnitCount(unit)
