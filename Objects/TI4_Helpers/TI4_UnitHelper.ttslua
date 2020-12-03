@@ -929,13 +929,13 @@ local _unitModifiers = {
         apply = function(unitAttrs)
             for unitType, attr in pairs(unitAttrs) do
                 if attr.spaceCannon then
-                    attr.spaceCannon.rerollMisses = 999 -- Reroll ALL misses
+                    attr.spaceCannon.rerollMisses = true
                 end
                 if attr.bombardment then
-                    attr.bombardment.rerollMisses = 999 -- Reroll ALL misses
+                    attr.bombardment.rerollMisses = true
                 end
                 if attr.antiFighterBarrage then
-                    attr.antiFighterBarrage.rerollMisses = 999 -- Reroll ALL misses
+                    attr.antiFighterBarrage.rerollMisses = true
                 end
             end
         end

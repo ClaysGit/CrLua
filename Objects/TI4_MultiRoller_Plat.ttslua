@@ -1061,7 +1061,7 @@ function Roller_RollDiceCoroutine()
     -- Wait for dice, extract roll values.
     local timeout = Time.time + 3
     for _, dice in ipairs(Roller._dice) do
-        dice._rollValues = {}
+        dice._rollData = {}
         for _, guid in ipairs(dice._guids) do
             local die = false
             while true do
@@ -1073,43 +1073,39 @@ function Roller_RollDiceCoroutine()
                 end
             end
             if die then
-                table.insert(dice._rollValues, die.getValue() or 0)
+                local rollData = { guid = guid, finalValue = die.getValue() or 0 }
+                table.insert(dice._rollData, rollData)
                 die.interactable = true
             end
         end
     end
     coroutine.yield(0)
 
-    -- Reroll misses for any dice that have available rerolls
+    -- Find dice that reroll-on-miss, and prep them for reroll.
     local conductRerolls = false
-    local rerollingDiceByType = {}
     for _, dice in ipairs(Roller._dice) do
-        local availableRerolls = dice.rerollMisses or 0
-        if availableRerolls > 0 then
+        local rerollMisses = dice.rerollMisses or false
+        if rerollMisses then
             dice._rerollGuids = {}
-            for i, guid in ipairs(dice._guids) do
-                -- These prooooobably sync up by index. Ensure they do before any merges.
-                local rollValue = dice._rollValues[i]
+            for _, rollData in ipairs(dice._rollData) do
+                local guid = rollData.guid
+                local origValue = rollData.finalValue
 
-                if rollValue < dice.hitValue then
+                -- Track dice GUID for reroll
+                -- Set the die's "initial roll" value, unset it's "final roll" value
+                if origValue < dice.hitValue then
                     table.insert(dice._rerollGuids, guid)
+                    rollData.origValue = origValue
+                    rollData.finalValue = false
                     conductRerolls = true
-                    availableRerolls = availableRerolls - 1
-                    if availableRerolls == 0 then
-                        break
-                    end
                 end
-            end
-
-            if #dice._rerollGuids > 0 then
-                dice._originalRollValues = dice._rollValues
-                dice._rollValues = {}
             end
         end
     end
 
     -- For any rerolls found, roll the dice! And watch for results.
     if conductRerolls then
+        -- Roll dice in _rerollGuids
         for _, dice in ipairs(Roller._dice) do
             for _, guid in ipairs(dice._rerollGuids or {}) do
                 local die = getObjectFromGUID(guid)
@@ -1119,21 +1115,22 @@ function Roller_RollDiceCoroutine()
         end
         coroutine.yield(0)
 
+        -- Watch ALL dice, and update the 'final value' 
         local timeout = Time.time + 3
         for _, dice in ipairs(Roller._dice) do
-            dice._rollValues = {}
-            for _, guid in ipairs(dice._guids) do
+            for _, rollData in ipairs(dice._rollData) do
                 local die = false
                 while true do
-                    die = getObjectFromGUID(guid)  -- re-get every time, can be deleted
+                    die = getObjectFromGUID(rollData.guid)  -- re-get every time, can be deleted
                     if die and (not die.resting) and Time.time < timeout then
                         coroutine.yield(0)
                     else
                         break
                     end
                 end
-                if die then
-                    table.insert(dice._rollValues, die.getValue() or 0)
+                -- If we have a die, but not a final result, set the final result
+                if die and not rollData.finalValue then
+                    rollData.finalValue = die.getValue() or 0
                     die.interactable = true
                 end
             end
@@ -1155,7 +1152,8 @@ function Roller_RollDiceCoroutine()
         local rollValues = {}
         local critCount = 0
         local unitHitCount = 0
-        for i, rollValue in ipairs(dice._rollValues) do
+        for i, rollData in ipairs(dice._rollData) do
+            local rollValue = rollData.finalValue
             local prefix = ''
             local suffix = ''
             if rollValue >= dice.hitValue then
@@ -1175,11 +1173,9 @@ function Roller_RollDiceCoroutine()
                     critCount = critCount + 1
                 end
             end
-            if dice._originalRollValues and dice.rerollMisses then
-                local originalRollValue = dice._originalRollValues[i]
-                if originalRollValue ~= rollValue then
-                    prefix = dice._originalRollValues[i] .. '->'
-                end
+            if dice.rerollMisses and rollData.origValue then
+                local originalRollValue = rollData.origValue
+                prefix = originalRollValue .. '->'
             end
             table.insert(rollValues, prefix .. rollValue .. suffix)
             setHitCount(dice.unitId, unitHitCount)
@@ -1236,7 +1232,7 @@ function rollDiceForAbility(player, ability)
                 critCount = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.count,
                 critValue = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.value,
                 critMessage = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.message,
-                rerollMisses = abilityAttrs.rerollMisses or 0,
+                rerollMisses = abilityAttrs.rerollMisses,
                 unitName = unit_stats.name,
                 unitId = unit_id
             })
