@@ -1053,34 +1053,36 @@ local _unitModifiers = {
         type = TYPE.CHOOSE,
         toggleActive = true,
         apply = function(unitAttrs, params)
+            local afbBest = false
+            local bombardentBest = false
+            local spaceCannonBest = false
             for unitType, attr in pairs(unitAttrs) do
-                local best = false
-                if attr.antiFighterBarrage and (params.myUnitTypeToCount[unitType] or 0) > 0 then
-                    if (not best) or (attr.antiFighterBarrage.hit < best.antiFighterBarrage.hit) then
-                        best = attr
+                local unitTypeCount = params.myUnitTypeToCount[unitType] or attr.unitCount or 0
+                if attr.antiFighterBarrage and unitTypeCount > 0 then
+                    if (not afbBest) or (attr.antiFighterBarrage.hit < afbBest.antiFighterBarrage.hit) then
+                        afbBest = attr
                     end
                 end
-                if best then
-                    best.antiFighterBarrage.extraDice = (best.antiFighterBarrage.extraDice or 0) + 1
-                end
-                local best = false
-                if attr.bombardment and (params.myUnitTypeToCount[unitType] or 0) > 0 then
-                    if (not best) or (attr.bombardment.hit < best.bombardment.hit) then
-                        best = attr
+                if attr.bombardment and unitTypeCount > 0 then
+                    if (not bombardentBest) or (attr.bombardment.hit < bombardentBest.bombardment.hit) then
+                        bombardentBest = attr
                     end
                 end
-                if best then
-                    best.bombardment.extraDice = (best.bombardment.extraDice or 0) + 1
-                end
-                local best = false
-                if attr.spaceCannon and (params.myUnitTypeToCount[unitType] or 0) > 0 then
-                    if (not best) or (attr.spaceCannon.hit < best.spaceCannon.hit) then
-                        best = attr
+                if attr.spaceCannon and unitTypeCount > 0 then
+                    if (not spaceCannonBest) or (attr.spaceCannon.hit < spaceCannonBest.spaceCannon.hit) then
+                        spaceCannonBest = attr
                     end
                 end
-                if best then
-                    best.spaceCannon.extraDice = (best.spaceCannon.extraDice or 0) + 1
-                end
+            end
+
+            if bombardentBest then
+                bombardentBest.bombardment.extraDice = (bombardentBest.bombardment.extraDice or 0) + 1
+            end
+            if spaceCannonBest then
+                spaceCannonBest.spaceCannon.extraDice = (spaceCannonBest.spaceCannon.extraDice or 0) + 1
+            end
+            if afbBest then
+                afbBest.antiFighterBarrage.extraDice = (afbBest.antiFighterBarrage.extraDice or 0) + 1
             end
         end
     },
