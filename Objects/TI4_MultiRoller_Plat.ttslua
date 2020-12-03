@@ -1098,11 +1098,7 @@ function Roller_RollDiceCoroutine()
             end
 
             if #dice._rerollGuids > 0 then
-                dice._originalRollValues = {}
-                -- Copy
-                for _, origRollValue in ipairs(dice._rollValues) do
-                    table.insert(dice._originalRollValues, origRollValue)
-                end
+                dice._originalRollValues = dice._rollValues
                 dice._rollValues = {}
             end
         end
@@ -1155,14 +1151,15 @@ function Roller_RollDiceCoroutine()
         local rollValues = {}
         local critCount = 0
         local unitHitCount = 0
-        for _, rollValue in ipairs(dice._rollValues) do
+        for i, rollValue in ipairs(dice._rollValues) do
+            local prefix = ''
             local suffix = ''
             if rollValue >= dice.hitValue then
                 hits = hits + 1
                 unitHitCount = unitHitCount + 1
                 suffix = '#'
             end
-            if (dice.critCount or dice.critMessagePrefix) and dice.critValue and (rollValue >= dice.critValue) then
+            if (dice.critCount or dice.critMessage) and dice.critValue and (rollValue >= dice.critValue) then
                 if dice.critCount then
                     hits = hits + dice.critCount
                     unitHitCount = unitHitCount + dice.critCount
@@ -1170,23 +1167,30 @@ function Roller_RollDiceCoroutine()
                         suffix = suffix .. '#'
                     end
                 end
-                if dice.critMessagePrefix then
+                if dice.critMessage then
                     critCount = critCount + 1
                 end
             end
-            table.insert(rollValues, rollValue .. suffix)
+            if dice._originalRollValues and dice.rerollMisses then
+                local originalRollValue = dice._originalRollValues[i]
+                if originalRollValue ~= rollValue then
+                    prefix = dice._originalRollValues[i] .. '->'
+                end
+            end
+            table.insert(rollValues, prefix .. rollValue .. suffix)
             setHitCount(dice.unitId, unitHitCount)
         end
 
         if dice._originalRollValues and dice.rerollMisses then
             local availableRerolls = dice.rerollMisses == 999 and 'all' or dice.rerollMisses
-            table.insert(specialMessages, dice.unitName .. ' rolled values before automatic reroll of ' .. availableRerolls .. ' misses: ' .. table.concat(dice._originalRollValues, ', '))
+            --table.insert(specialMessages, dice.unitName .. ' rolled values before automatic reroll of ' .. availableRerolls .. ' misses: ' .. table.concat(dice._originalRollValues, ', '))
         end
 
         table.insert(message, dice.unitName .. ' ' .. item .. table.concat(rollValues, ', '))
 
-        if critCount > 0 and dice.critMessagePrefix then
-            table.insert(specialMessages, dice.critMessagePrefix .. critCount)
+        if critCount > 0 and dice.critMessage then
+            local critMessage = dice.critMessage:gsub('%${PlayerName}', playerName):gsub('%${ExtraHits}', critCount)
+            table.insert(specialMessages, critMessage)
         end
 
         if dice.availableTargets and dice.availableTargets >= 0 then
@@ -1196,7 +1200,7 @@ function Roller_RollDiceCoroutine()
     broadcastToAll(playerName .. ' rolled: [ffffff]' .. table.concat(message, ', '), playerColor)
     broadcastToAll(playerName .. ' landed ' .. hits .. ' hit' .. (hits == 1 and '' or 's') .. '.', playerColor)
     for _, message in ipairs(specialMessages) do
-        broadcastToAll(playerName .. ': ' .. message)
+        broadcastToAll(message, playerColor)
     end
 
     Roller._setRollInProgress(false)
@@ -1236,7 +1240,7 @@ function rollDiceForAbility(player, ability)
                 hitValue = abilityAttrs.hit,
                 critCount = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.count,
                 critValue = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.value,
-                critMessagePrefix = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.messagePrefix,
+                critMessage = abilityAttrs.extraHitsOn and abilityAttrs.extraHitsOn.message,
                 availableTargets = abilityAttrs.availableTargets,
                 rerollMisses = abilityAttrs.rerollMisses or 0,
                 unitName = unit_stats.name,

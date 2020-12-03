@@ -172,7 +172,7 @@ local _unitOverrides = {
     ['Super-Dreadnought II'] = { upgrade = 'Dreadnought', bombardment = { dice = 1, hit = 4 }, spaceCombat = { hit = 4 }, move = 2, capacity = 2 },
     -- PoK faction unit overrides and upgrades
     ['Strike Wing Alpha I'] = { override = 'Destroyer', spaceCombat = { hit = 8 }, capacity = 1 },
-    ['Strike Wing Alpha II'] = { upgrade = 'Destroyer', antiFighterBarrage = { dice = 3, hit = 6, extraHitsOn = { value = 9, messagePrefix = 'Rolls which destroy 1 infantry in the Active System\'s space area: ' } }, spaceCombat = { hit = 7 }, capacity = 1 },
+    ['Strike Wing Alpha II'] = { upgrade = 'Destroyer', antiFighterBarrage = { dice = 3, hit = 6, extraHitsOn = { value = 9, message = '${PlayerName} destroys ${ExtraHits} of the opponent\'s Infantry in the space area.' } }, spaceCombat = { hit = 7 }, capacity = 1 },
     ['Crimson Legionnaire I'] = { override = 'Infantry', groundCombat = { hit = 8 } },
     ['Crimson Legionnaire II'] = { upgrade = 'Infantry', groundCombat = { hit = 7 } },
     ['Saturn Engine I'] = { override = 'Cruiser', spaceCombat = { hit = 7 }, capacity = 1 },
@@ -945,7 +945,7 @@ local _unitModifiers = {
     },
 
     ['Ta Zern'] = {
-        description = 'You may reroll any dice. (Automatic tool: Reroll all misses)',
+        description = 'You may reroll any dice. (When active will reroll all misses)',
         leader = LEADER.COMMANDER,
         owner = OWNER.SELF,
         type = TYPE.ADJUST,
