@@ -468,32 +468,18 @@ local _systems = {
 }
 
 local _nonPlanetResourceInfluenceCards = {
-  -- Planet attachment cards
   { name = 'Core Mining', resources = 2, influence = 0 },
   { name = 'Terraforming Initiative', resources = 1, influence = 1 },
   { name = 'Senate Sanctuary', resources = 0, influence = 2 },
-  { name = 'Rich World', resources = 1, influence = 0 },
-  { name = 'Mining World', resources = 2, influence = 0 },
-  { name = 'Lazax Survivors', resources = 1, influence = 2 },
-  { name = 'Tomb of Emphidia', resources = 0, influence = 1 },
-  { name = 'Paradise World', resources = 0, influence = 2 },
-  { name = 'Dyson Sphere', resources = 2, influence = 1 },
-  { name = 'Biotic Research Facility', resources = 1, influence = 1 },
-  { name = 'Cybernetic Research Facility', resources = 1, influence = 1 },
-  { name = 'Warfare Research Facility', resources = 1, influence = 1 },
-  { name = 'Propulsion Research Facility', resources = 1, influence = 1 },
-  { name = 'Terraform', resources = 1, influence = 1 },
-  { name = 'Ul the Progenitor', resources = 3, influence = 3, requireFaceUp = true },
 
-  -- Technology
-  -- Predictive Intelligence: Increase minimum available votes by 3.
+  -- Technology - Predictive Intelligence: Increase minimum available votes by 3.
   { name = 'Predictive Intelligence', resources = 0, influence = 3, requireFaceUp = true },
 }
 
 local TYPE = {
     MUTATE = 'mutate', -- adds or removes attribute(s), do first.
     ADJUST = 'adjust',  -- adjusts existing attribute(s).
-    CHOOSE = 'choose',  -- picks from available unit(s), do after all others.
+    CHOOSE = 'choose',  -- effects based on attributes; do after all others.
 }
 
 local LEADER = {
@@ -501,6 +487,110 @@ local LEADER = {
     COMMANDER = 'commander',
     HERO = 'hero'
 }
+
+local _objectByNameCache = {}
+local function _getObjectByName(objectName)
+    assert(type(objectName) == 'string')
+
+    -- Check cache for object GUID
+    if _objectByNameCache[objectName] then
+        -- If GUID is present, see if the object is still on the table
+        local object = getObjectFromGUID(_objectByNameCache[objectName])
+        if object then
+            return object
+        else
+            -- If the object wasn't available, clear the GUID that was previously cached
+            _objectByNameCache[objectName] = nil
+        end
+    end
+
+    for _, object in ipairs(getAllObjects()) do
+        if object.getName() == objectName then
+            _objectByNameCache[objectName] = object.getGUID()
+            return object
+        end
+    end
+
+    print('Unable to locate object: ' .. objectName)
+end
+
+local function _getPlanetUnderToken(tokenName, requireFaceDown)
+    assert(type(tokenName) == 'string')
+    assert(type(requireFaceDown) == 'boolean')
+
+    -- Get the planet attachment token
+    local attachmentToken = _getObjectByName(tokenName)
+    if not attachmentToken then
+        return false
+    end
+
+    -- Research facility attachments must be facedown to apply.
+    if requireFaceDown and not attachmentToken.is_face_down then
+        return false
+    end
+
+    -- Get the system that the token is on, if any
+    local system = systemFromPosition(attachmentToken.getPosition())
+    if not system then
+        -- Token isn't placed on a system tile
+        return false
+    end
+
+    -- Get the planet of the system that the token is on.
+    local planet = planetFromPosition({ systemGuid = system.guid, position = attachmentToken.getPosition(), exact = false })
+    if not planet then
+        -- Token is on a system tile, but not on a planet.
+        -- This could be a user error. Warn them.
+        print(tokenName .. ' is placed on the board, but not on a planet. It is not modifying any planets.')
+        return false
+    end
+
+    return planet.name
+end
+
+local function _planetAttachmentTokenModifier(tokenName, techSpecColor, addRes, addInf)
+    local attributeDescriptions = {}
+    if addRes and addRes > 0 then
+        table.insert(attributeDescriptions, addRes .. ' resource' .. (addRes > 1 and 's' or ''))
+    end
+    if infDesc and infDesc > 0 then
+        table.insert(attributeDescriptions, addInf .. ' influence')
+    end
+
+    local description = false
+    if techSpecColor then
+        description = 'Planet gains its first tech specialty (' .. techSpecColor .. '), otherwise ' .. table.concat(attributeDescriptions, ' and ') .. '.'
+    else
+        description = 'Planet gains ' .. table.concat(attributeDescriptions, ' and ') .. '.'
+    end
+
+    return {
+        description = description,
+        type = TYPE.ADJUST,
+        anywhereOnTable = true,
+        tag = 'Tile',
+        apply = function(resInfCards)
+            -- See if the token is placed on a planet on a system tile.
+            local planetName = _getPlanetUnderToken(tokenName, techSpecColor and true or false)
+            if not planetName then
+                return
+            end
+
+            -- See if the attached planet is in the list of res/inf cards we're processing
+            for _, card in ipairs(resInfCards) do
+                if card.name == planetName then
+                    if addRes and addRes > 0 then
+                        card.resources = (card.resources or 0) + addRes
+                    end
+                    if addInf and addInf > 0 then
+                        card.influence = (card.influence or 0) + addInf
+                    end
+                    return
+                end
+            end
+        end
+    }
+end
 
 local _resInfModifiers = {
     ['Elder Qanoj'] = {
@@ -534,12 +624,24 @@ local _resInfModifiers = {
             end
 
             if votesAvailable then
-                local seatedPlayerZones = _zoneHelper.zones()
-
-                table.insert( resInfCards, { name = 'Zeal', resources = 0, influence = #seatedPlayerZones } )
+                table.insert( resInfCards, { name = 'Zeal', resources = 0, influence = _zoneHelper.getPlayerCount() } )
             end
         end
     },
+
+    ['Biotic Research Facility Token'] = _planetAttachmentTokenModifier('Biotic Research Facility Token', 'green', 1, 1),
+    ['Cybernetic Research Facility Token'] = _planetAttachmentTokenModifier('Cybernetic Research Facility Token', 'yellow', 1, 1),
+    ['Propulsion Research Facility Token'] = _planetAttachmentTokenModifier('Propulsion Research Facility Token', 'blue', 1, 1),
+    ['Warfare Research Facility Token'] = _planetAttachmentTokenModifier('Warfare Research Facility Token', 'red', 1, 1),
+    ['Lazax Survivors Token'] = _planetAttachmentTokenModifier('Lazax Survivors Token', false, 1, 2),
+    ['Rich World Token'] = _planetAttachmentTokenModifier('Rich World Token', false, 1, 0),
+    ['Mining World Token'] = _planetAttachmentTokenModifier('Mining World Token', false, 2, 0),
+    ['Dyson Sphere Token'] = _planetAttachmentTokenModifier('Dyson Sphere Token', false, 2, 1),
+    ['Paradise World Token'] = _planetAttachmentTokenModifier('Paradise World Token', false, 0, 2),
+    ['Tomb of Emphidia Token'] = _planetAttachmentTokenModifier('Tomb of Emphidia Token', false, 0, 1),
+    ['Terraform Token'] = _planetAttachmentTokenModifier('Terraform Token', false, 1, 1),
+    --Note: This operates differently from the Unit Helper version, which uses 'ToggleActive' on the Hero Card.
+    ['Geoform Token'] = _planetAttachmentTokenModifier('Geoform Token', false, 3, 3),
 }
 
 local LOCAL_DISTANCE_TO_PLANET = 1.1
@@ -864,22 +966,6 @@ end
 --- Get non-trivial modifiers.
 -- @return table: map from color to list of modifier names.
 function getColorToResInfModifiers()
-    local guidToPosition = {}
-    local guidToName = {}
-    local inHandGuidSet = _zoneHelper.inHand()
-    for _, object in ipairs(getAllObjects()) do
-        local guid = object.getGUID()
-        if object.tag == 'Card' and (not inHandGuidSet[guid]) and (not object.is_face_down) then
-            local name = object.getName()
-            local modifier = _resInfModifiers[name]
-            if modifier then
-                local position = object.getPosition()
-                guidToPosition[guid] = position
-                guidToName[guid] = name
-            end
-        end
-    end
-
     local colorToResInfModifiers = {}
     local function addModifier(color, modifier)
         local entry = colorToResInfModifiers[color]
@@ -895,9 +981,33 @@ function getColorToResInfModifiers()
         table.insert(entry, modifier)
     end
 
-    for _, color in ipairs(_zoneHelper.zones()) do
+    local zones = _zoneHelper.zones()
+    for _, color in ipairs(zones) do
         colorToResInfModifiers[color] = {}
     end
+
+    local guidToPosition = {}
+    local guidToName = {}
+    local inHandGuidSet = _zoneHelper.inHand()
+    for _, object in ipairs(getAllObjects()) do
+        local guid = object.getGUID()
+        if not inHandGuidSet[guid] then
+            local name = object.getName()
+            local modifier = _resInfModifiers[name]
+            if modifier and object.tag == (modifier.tag or 'Card') and (not modifier.requireFaceUp or not object.is_face_down) then
+                if modifier.anywhereOnTable then
+                    for _, color in ipairs(zones) do
+                        addModifier(color, name)
+                    end
+                else
+                    local position = object.getPosition()
+                    guidToPosition[guid] = position
+                    guidToName[guid] = name
+                end
+            end
+        end
+    end
+
     local guidToColor = _zoneHelper.zonesFromPositions(guidToPosition)
     for guid, color in pairs(guidToColor) do
         local name = guidToName[guid]
