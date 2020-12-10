@@ -468,26 +468,29 @@ local _systems = {
 }
 
 local _nonPlanetResourceInfluenceCards = {
-  -- Planet attachment cards
-  { name = 'Core Mining', resources = 2, influence = 0 },
-  { name = 'Terraforming Initiative', resources = 1, influence = 1 },
-  { name = 'Senate Sanctuary', resources = 0, influence = 2 },
-  { name = 'Rich World', resources = 1, influence = 0 },
-  { name = 'Mining World', resources = 2, influence = 0 },
-  { name = 'Lazax Survivors', resources = 1, influence = 2 },
-  { name = 'Tomb of Emphidia', resources = 0, influence = 1 },
-  { name = 'Paradise World', resources = 0, influence = 2 },
-  { name = 'Dyson Sphere', resources = 2, influence = 1 },
-  { name = 'Biotic Research Facility', resources = 1, influence = 1 },
-  { name = 'Cybernetic Research Facility', resources = 1, influence = 1 },
-  { name = 'Warfare Research Facility', resources = 1, influence = 1 },
-  { name = 'Propulsion Research Facility', resources = 1, influence = 1 },
-  { name = 'Terraform', resources = 1, influence = 1 },
-  { name = 'Ul the Progenitor', resources = 3, influence = 3, requireFaceUp = true },
+    -- Keep base game agendas here?  Are they gone?  XXX TODO
 
-  -- Technology
-  -- Predictive Intelligence: Increase minimum available votes by 3.
-  { name = 'Predictive Intelligence', resources = 0, influence = 3, requireFaceUp = true },
+    { name = 'Core Mining', resources = 2, influence = 0 },
+    { name = 'Senate Sanctuary', resources = 0, influence = 2 },
+    { name = 'Terraforming Initiative', resources = 1, influence = 1 },
+
+    -- Attachment tokens are the new way to do things.
+    -- { name = 'Rich World', resources = 1, influence = 0 },
+    -- { name = 'Mining World', resources = 2, influence = 0 },
+    -- { name = 'Lazax Survivors', resources = 1, influence = 2 },
+    -- { name = 'Tomb of Emphidia', resources = 0, influence = 1 },
+    -- { name = 'Paradise World', resources = 0, influence = 2 },
+    -- { name = 'Dyson Sphere', resources = 2, influence = 1 },
+    -- { name = 'Biotic Research Facility', resources = 1, influence = 1 },
+    -- { name = 'Cybernetic Research Facility', resources = 1, influence = 1 },
+    -- { name = 'Warfare Research Facility', resources = 1, influence = 1 },
+    -- { name = 'Propulsion Research Facility', resources = 1, influence = 1 },
+    -- { name = 'Terraform', resources = 1, influence = 1 },
+    -- { name = 'Ul the Progenitor', resources = 3, influence = 3, requireFaceUp = true },
+
+    -- Technology
+    -- Predictive Intelligence: Increase minimum available votes by 3.
+    { name = 'Predictive Intelligence', resources = 0, influence = 3, requireFaceUp = true },
 }
 
 local TYPE = {
@@ -504,7 +507,7 @@ local LEADER = {
 
 local _resInfModifiers = {
     ['Elder Qanoj'] = {
-        description = 'Each planet you exhaust to cast votes provides 1 additional vote.',
+        description = 'Each planet you exhaust to cast votes provides 1 additional vote',
         type = TYPE.ADJUST,
         leader = LEADER.COMMANDER, -- Xxcha
         apply = function(resInfCards)
@@ -523,23 +526,25 @@ local _resInfModifiers = {
         end
     },
 
-    ['Zeal'] = {
-        description = 'When you cast at least 1 vote, cast 1 additional vote for each player in the game, including you.',
-        type = TYPE.CHOOSE,
-        apply = function(resInfCards)
-            -- Only applies if votes would otherwise be >0
-            local votesAvailable = false
-            for _, resInfCard in ipairs(resInfCards) do
-                votesAvailable = votesAvailable or (resInfCard.influence > 0)
-            end
-
-            if votesAvailable then
-                local seatedPlayerZones = _zoneHelper.zones()
-
-                table.insert( resInfCards, { name = 'Zeal', resources = 0, influence = #seatedPlayerZones } )
-            end
-        end
-    },
+    -- This modifier isn't quite right, get N votes for EACH time voting.
+    -- Comment this out for now (players can manage) until figuring a better way.
+    -- ['Zeal'] = {
+    --     description = 'When you cast at least 1 vote, cast 1 additional vote for each player in the game, including you',
+    --     type = TYPE.CHOOSE,
+    --     apply = function(resInfCards)
+    --         -- Only applies if votes would otherwise be >0
+    --         local votesAvailable = false
+    --         for _, resInfCard in ipairs(resInfCards) do
+    --             votesAvailable = votesAvailable or (resInfCard.influence > 0)
+    --         end
+    --
+    --         if votesAvailable then
+    --             local seatedPlayerZones = _zoneHelper.zones()
+    --
+    --             table.insert( resInfCards, { name = 'Zeal', resources = 0, influence = #seatedPlayerZones } )
+    --         end
+    --     end
+    -- },
 }
 
 local LOCAL_DISTANCE_TO_PLANET = 1.1
@@ -926,6 +931,21 @@ function getColorToResInfModifiers()
     return colorToResInfModifiers
 end
 
+--- Return modifier descriptions.
+-- @param resInfModifiers (table) : list of modifier names.
+-- @return (table) : map from name to description.
+function getResInfModifierDescriptions(resInfModifiers)
+    assert(type(resInfModifiers) == 'table')
+    local result = {}
+    for _, name in ipairs(resInfModifiers) do
+        local modifier = _resInfModifiers[name]
+        if modifier then
+            result[name] = assert(modifier.description)
+        end
+    end
+    return result
+end
+
 --- Compute resource/influcence.
 -- @return {resource=#,influence=#} table.
 function applyResInfModifiers(params)
@@ -1100,12 +1120,28 @@ end
 -- @return string.
 function _systemToString(system)
     assert(type(system) == 'table' and system.tile)
+    local function capitalizeWords(words)
+        local words, _ = words:gsub("(%l)(%w*)", function(a,b) return string.upper(a)..b end)
+        return words
+    end
     local message = {
         'System ' .. system.tile
     }
-    for i, planet in ipairs(system.planets or {}) do
-        table.insert(message, i == 1 and ': ' or ', ')
+    for _, planet in ipairs(system.planets or {}) do
+        table.insert(message, #message == 1 and ': ' or ', ')
         table.insert(message, '“' .. planet.name .. '”')
+    end
+    for _, wormhole in ipairs(system.wormholes or {}) do
+        table.insert(message, #message == 1 and ': ' or ', ')
+        table.insert(message, capitalizeWords(wormhole) .. ' Wormhole')
+    end
+    for _, anomaly in ipairs(system.anomalies or {}) do
+        table.insert(message, #message == 1 and ': ' or ', ')
+        table.insert(message, capitalizeWords(anomaly))
+    end
+    if system.hyperlane then
+        table.insert(message, #message == 1 and ': ' or ', ')
+        table.insert(message, 'Hyperlane')
     end
     return table.concat(message, '')
 end
@@ -1645,6 +1681,9 @@ function onLoad(saveState)
 
     self.addContextMenuItem('Verify', verifyAllSystems)
 
+    -- Not for full releases, exists for map builders who want to find tiles easily.
+    self.addContextMenuItem('Rename Tiles', function() startLuaCoroutine(self, '_renameSystemTilesCoroutine') end)
+
     -- Only the GM/black player can see this object.  Others can still interact!
     local invisibleTo = {}
     for _, color in ipairs(Player.getColors()) do
@@ -1720,6 +1759,57 @@ function activateSystem(playerColor, system)
         -- Since that is happening, also spread out over N frames.
         Wait.frames(function() object.call('onSystemActivation', system) end, i)
     end
+end
+
+-------------------------------------------------------------------------------
+
+function _renameSystemTilesCoroutine()
+    local bagAndGuidEntries = {} -- allow multiple copies of a tile in different bags
+    for _, object in ipairs(getAllObjects()) do
+        if _systems[object.getGUID()] then
+            table.insert(bagAndGuidEntries, { bag = false, guid = object.getGUID() })
+        elseif object.tag == 'Bag' then
+            for _, entry in ipairs(object.getObjects()) do
+                if _systems[entry.guid] then
+                    table.insert(bagAndGuidEntries, { bag = object, guid = entry.guid })
+                end
+            end
+        end
+    end
+    coroutine.yield(0)
+    for i, bagAndGuidEntry in ipairs(bagAndGuidEntries) do
+        local bag = bagAndGuidEntry.bag
+        local guid = assert(bagAndGuidEntry.guid)
+        local system = assert(_systems[guid])
+        local name = _systemToString(system)
+        local object = false
+        if bag then
+            local pos = bag.getPosition()
+            object = bag.takeObject({
+                guid = guid,
+                position = { x = pos.x, y = pos.y + 5 + i * 0.3, z = pos.z }
+            })
+            while object.spawning do
+                coroutine.yield(0)
+            end
+            coroutine.yield(0)
+        else
+            object = getObjectFromGUID(guid)
+        end
+        assert(object)
+        object.setRotation({ x = 0, y = 180, z = 0 })
+        if string.len(object.getName()) == 0 then
+            object.setName(name)
+        end
+        if bag then
+            bag.putObject(object)
+            for _ = 1, 20 do
+                coroutine.yield(0)
+            end
+        end
+        coroutine.yield(0)
+    end
+    return 1
 end
 
 -------------------------------------------------------------------------------

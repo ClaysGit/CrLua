@@ -1,8 +1,8 @@
 -- @author Darrell for context menu stuff
 -- @author Milty for adapting to exploration
+-- #include <~/CrLua/Objects/TI4_Helpers/TI4_ExploreHelper>
 
-
-local attachmentCardToTokenMap = {
+local exploreCardToTokenMap = {
     ["Propulsion Research Facility"] = {"Propulsion Research Facility Token"}, -- 1r1i or blue
     ["Cybernetic Research Facility"] = {"Cybernetic Research Facility Token"}, -- 1r1i or yellow
     ["Biotic Research Facility"] = {"Biotic Research Facility Token"}, -- 1r1i or green
@@ -13,7 +13,7 @@ local attachmentCardToTokenMap = {
     ["Dyson Sphere"] = {"Dyson Sphere Token"}, -- 2r1i
     ["Paradise World"] = {"Paradise World Token"}, -- 2i
     ["Tomb of Emphidia"] = {"Tomb of Emphidia Token"}, -- 1i
-    ["Demilitarized Zone"] = {"DMZ Token"},
+    ["Demilitarized Zone (PoK)"] = {"DMZ Token"},
     ["Gamma Wormhole"] = {"Gamma Wormhole Token"},
     ["Gamma Relay"] = {"Gamma Wormhole Token"},
     ["Mirage (Exploration)"] = {"Mirage Token", "Mirage", "Mirage Flight Academy"},
@@ -21,7 +21,66 @@ local attachmentCardToTokenMap = {
     ["Stellar Converter"] = {"Stellar Converter Token"},
 }
 
-local data = {}
+local attachTokens = {
+    ['Propulsion Research Facility Token'] = {
+        decal = true,
+        faceUp = { resources = 1, influence = 1 },
+        faceDown = { tech = 'blue' },
+    },
+    ['Cybernetic Research Facility Token'] = {
+        decal = true,
+        faceUp = { resources = 1, influence = 1 },
+        faceDown = { tech = 'yellow' },
+    },
+    ['Biotic Research Facility Token'] = {
+        decal = true,
+        faceUp = { resources = 1, influence = 1 },
+        faceDown = { tech = 'green' },
+    },
+    ['Warfare Research Facility Token'] = {
+        decal = true,
+        faceUp = { resources = 1, influence = 1 },
+        faceDown = { tech = 'red' },
+    },
+    ['Lazax Survivors Token'] = {
+        decal = true,
+        faceUpOrDown = { resources = 1, influence = 2 },
+    },
+    ['Rich World Token'] = {
+        decal = true,
+        faceUpOrDown = { resources = 1 },
+    },
+    ['Mining World Token'] = {
+        decal = true,
+        faceUpOrDown = { resources = 2 },
+    },
+    ['Dyson Sphere Token'] = {
+        decal = true,
+        faceUpOrDown = { resources = 2, influence = 1 },
+    },
+    ['Paradise World Token'] = {
+        decal = true,
+        faceUpOrDown = { influence = 2 },
+    },
+    ['Tomb of Emphidia Token'] = {
+        decal = true,
+        faceUpOrDown = { influence = 1 },
+    },
+    ['DMZ Token'] = {
+        decal = true,
+        faceUpOrDown = {},
+    },
+    ['Titan Note Token'] = {
+        decal = true,
+        faceUpOrDown = { resources = 1, influence = 1 },  -- need multi-trait support for rest
+    },
+    ['Titan Ultimate Token'] = {
+        decal = true,
+        faceUpOrDown = { resources = 3, influence = 3 },
+    },
+}
+
+-------------------------------------------------------------------------------
 
 function getHelperClient(helperObjectName)
     local function getHelperObject()
@@ -41,22 +100,15 @@ end
 local _systemHelper = getHelperClient('TI4_SYSTEM_HELPER')
 local _deckHelper = getHelperClient('TI4_DECK_HELPER')
 
--------------------------------------------------------------------------------
-
-local _getByNameCache = {}
-function _getByName(name, tag)
-    local guid = _getByNameCache[name]
-    local object = guid and getObjectFromGUID(guid)
-    if object and ((not tag) or object.tag == tag) then
-        return object
-    end
-    for _, object in ipairs(getAllObjects()) do
-        if object.getName() == name and ((not tag) or object.tag == tag) then
-            _getByNameCache[name] = object.getGUID()
-            return object
+local function copyTable(t)
+    if t and type(t) == 'table' then
+        local copy = {}
+        for k, v in pairs(t) do
+            copy[k] = type(v) == 'table' and copyTable(v) or v
         end
+        t = copy
     end
-    error('_getByName: missing "' .. name .. '"')
+    return t
 end
 
 -------------------------------------------------------------------------------
@@ -77,40 +129,46 @@ function onLoad(saveState)
     self.setInvisibleTo(invisibleTo)
 
     local function delayedAdd()
+        local attachObjectGuids = {}
+        local lowerPlanetNameSet = _systemHelper.planets()
+
         for _, object in ipairs(getAllObjects()) do
-            if isSystemTile(object) then
+            if isExplorable(object) then
                 applyExplorationGoodness(object)
             elseif isFrontierToken(object) then
                 applyFrontierGoodness(object)
+            elseif AttachLib.isAttachToken(object) then
+                table.insert(attachObjectGuids, object.getGUID())
+            elseif object.tag == 'Card' and lowerPlanetNameSet[string.lower(object.getName())] then
+                -- Will re-add during attach below
+                object.setDecals({})
             end
         end
+
+        -- These are more expensive, spread them out.
+        local function attachOnePerFrame()
+            local guid = table.remove(attachObjectGuids)
+            local object = getObjectFromGUID(guid)
+            if object then
+                AttachLib.attach(object)
+            end
+            if #attachObjectGuids > 0 then
+                Wait.frames(attachOnePerFrame, 1)
+            end
+        end
+        Wait.frames(attachOnePerFrame, 1)
     end
+
     Wait.frames(delayedAdd, 11)
 end
 
-function applyExplorationGoodness(object)
-    assert(type(object) == 'userdata')
-    local systemList = _systemHelper.systems()
-    local planetList = systemList[object.getGUID()].planets
-    if planetList ~= nil then
-        for i, planet in ipairs(planetList) do
-            if planet.trait ~= nil then
-                object.addContextMenuItem('Explore ' .. planet.name, function() explorePlanet(object.getGUID(), planet.name) end, false)
-            end
-        end
-    end
-end
-
-function applyFrontierGoodness(object)
-    assert(type(object) == 'userdata')
-    object.addContextMenuItem('Explore Frontier', function() exploreFrontier(object) end, false)
-end
-
 function onObjectSpawn(object)
-    if isSystemTile(object) then
+    if isExplorable(object) then
         applyExplorationGoodness(object)
     elseif isFrontierToken(object) then
         applyFrontierGoodness(object)
+    elseif AttachLib.isAttachToken(object) then
+        AttachLib.attach(object)
     end
 
     -- Give token when card is drawn.
@@ -124,6 +182,54 @@ function onObjectSpawn(object)
         end
         Wait.time(delayedCheck, 5)
     end
+end
+
+function onObjectDrop(playerColor, droppedObject)
+    if AttachLib.isAttachToken(droppedObject) then
+        if AttachLib.attach(droppedObject) then
+            AttachLib.anchor(droppedObject)  -- move beneath any units and lock
+        end
+    end
+end
+
+function onObjectPickUp(playerColor, pickupObject)
+    if AttachLib.isAttachToken(pickupObject) then
+        AttachLib.detach(pickupObject)
+    end
+end
+
+-------------------------------------------------------------------------------
+
+function applyExplorationGoodness(object)
+    assert(type(object) == 'userdata')
+    if object.getName() == 'Mirage Token' then
+        local function exploreMirage()
+            -- System tile has correct data when Mirage dropped there, but
+            -- since Mirage can move re-find system when asked to explore.
+            local system = _systemHelper.systemFromPosition(object.getPosition())
+            if system then
+                explorePlanet(system.guid, 'Mirage')
+            else
+                printToAll('Mirage not attached to a system, cannot explore', 'Red')
+            end
+        end
+        object.addContextMenuItem('Explore Mirage', exploreMirage, false)
+    else
+        local systemList = _systemHelper.systems()
+        local planetList = systemList[object.getGUID()].planets
+        if planetList ~= nil then
+            for i, planet in ipairs(planetList) do
+                if planet.trait ~= nil then
+                    object.addContextMenuItem('Explore ' .. planet.name, function() explorePlanet(object.getGUID(), planet.name) end, false)
+                end
+            end
+        end
+    end
+end
+
+function applyFrontierGoodness(object)
+    assert(type(object) == 'userdata')
+    object.addContextMenuItem('Explore Frontier', function() exploreFrontier(object) end, false)
 end
 
 function explorePlanet(tileGUID, planetName)
@@ -157,7 +263,7 @@ function explorePlanet(tileGUID, planetName)
 
     local exploreDeckGuid = _deckHelper.getDeckWithReshuffle(deckType)
     if not exploreDeckGuid then
-        print('ERROR: Unable to locate ' .. deckType .. ' deck.')
+        printToAll('ERROR: Unable to locate ' .. deckType .. ' deck.', 'Red')
         return
     end
     local exploreDeck = assert(getObjectFromGUID(exploreDeckGuid))
@@ -192,7 +298,7 @@ function exploreFrontier(token)
 
     local frontierDeckGuid = _deckHelper.getDeckWithReshuffle('Frontier Exploration')
     if not frontierDeckGuid then
-        print('ERROR: Unable to locate "Frontier Exploration" deck.')
+        printToAll('ERROR: Unable to locate "Frontier Exploration" deck.', 'Red')
         return
     end
     local frontierDeck = assert(getObjectFromGUID(frontierDeckGuid))
@@ -229,49 +335,61 @@ end
 
 function checkCardForToken(object_spawned, tileGUID, planetName)
     local cardName = object_spawned.getName()
-    local tokenList = attachmentCardToTokenMap[cardName]
+    local tokensToRetrieveSet = {}
+    for _, item in ipairs(exploreCardToTokenMap[cardName] or {}) do
+        tokensToRetrieveSet[item] = true
+    end
 
-    if tokenList then
-        local tokensToRetrieveSet = {}
-        for _, item in ipairs(tokenList) do
-            tokensToRetrieveSet[item] = true
-        end
+    local explorationBag = _getByName('Exploration Bag', 'Bag')
+    for i, token in ipairs(explorationBag.getObjects()) do
+        if tokensToRetrieveSet[token.name] then
 
-        local explorationBag = _getByName('Exploration Bag', 'Bag')
-        local explorationBagContents = explorationBag.getObjects()
-        for i, token in ipairs(explorationBagContents) do
-            if tokensToRetrieveSet[token.name] then
-                local objRot = object_spawned.getRotation()
-                local techRot = 0
-                if planetName then
-                    local system = _systemHelper.systemFromGuid(tileGUID)
-                    for _, planet in ipairs(system.planets) do
-                        if planet.name == planetName then
-                            if planet.tech ~= nil then techRot = 180 end
-                        end
+            local position = object_spawned.getPosition()
+            position.y = position.y + i * 0.3
+            local rotation = object_spawned.getRotation()
+
+            local function takeCallback(object)
+                if AttachLib.isAttachToken(object) then
+                    -- Attach will figure out if token should be face up/down.
+                    if AttachLib.attach(object) then
+                        AttachLib.anchor(object)  -- move beneath any units and lock
                     end
                 end
-                local position = object_spawned.getPosition()
-                position.y = position.y + 3 + i
-                explorationBag.takeObject({
-                    position = position,
-                    rotation = {objRot.x, objRot.y, techRot},
-                    guid = token.guid,
-                })
-
-                -- Only get each token once.
-                tokensToRetrieveSet[token.name] = nil
             end
+
+            explorationBag.takeObject({
+                position = position,
+                rotation = rotation,
+                guid = token.guid,
+                smooth = true,
+                callback_function = takeCallback
+            })
+
+            -- Only get each token once.
+            tokensToRetrieveSet[token.name] = nil
         end
     end
 end
 
-function isSystemTile(object)
-    if not data.systemTileSet then
-        local systemList = _systemHelper.systems()
-        data.systemTileSet = systemList
+-------------------------------------------------------------------------------
+
+local _systemGuids = false
+function isExplorable(object)
+    if not _systemGuids then
+        _systemGuids = {}
+        for guid, _ in pairs(_systemHelper.systems()) do
+            _systemGuids[guid] = true
+        end
     end
-    return object.tag == 'Generic' and data.systemTileSet[object.getGUID()] or false
+    if object.tag ~= 'Generic' then
+        return false
+    end
+    if _systemGuids[object.getGUID()] then
+        return true
+    end
+    if object.getName() == 'Mirage Token' then
+        return true
+    end
 end
 
 function isFrontierToken(object)
@@ -288,6 +406,22 @@ function getAllFrontierTokens()
     end
 
     return frontierTokens
+end
+
+local _getByNameCache = {}
+function _getByName(name, tag)
+    local guid = _getByNameCache[name]
+    local object = guid and getObjectFromGUID(guid)
+    if object and ((not tag) or object.tag == tag) then
+        return object
+    end
+    for _, object in ipairs(getAllObjects()) do
+        if object.getName() == name and ((not tag) or object.tag == tag) then
+            _getByNameCache[name] = object.getGUID()
+            return object
+        end
+    end
+    error('_getByName: missing "' .. name .. '"')
 end
 
 -------------------------------------------------------------------------------
@@ -362,6 +496,423 @@ function retrieveFrontierTokens()
     for _, object in ipairs(getAllObjects()) do
         if isFrontierToken(object) then
             frontierTokenBag.putObject(object)
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
+
+AttachLib = {}
+
+function AttachLib.isAttachToken(object)
+    assert(type(object) == 'userdata')
+    return attachTokens[object.getName()] and true or false
+end
+
+--- Attach token to system, return true on success.
+function AttachLib.attach(attachTokenObject)
+    assert(type(attachTokenObject) == 'userdata')
+    local system, planetName = AttachLib._getSystemAndPlanetName(attachTokenObject.getPosition())
+    if system then
+        AttachLib._orientToken(system, planetName, attachTokenObject)
+        local success = AttachLib._injectAttachment(system, planetName, attachTokenObject)
+        if success then
+            if attachTokens[attachTokenObject.getName()].decal then
+                local card = AttachLib._getPlanetCard(planetName)
+                if card then
+                    AttachLib._attachDecal(card, attachTokenObject)
+                end
+            end
+            local name = planetName or system.string
+            printToAll('Attaching "' .. attachTokenObject.getName() .. '" to "' .. name .. '"', 'Yellow')
+            return true
+        end
+    end
+end
+
+--- Detach token from system, return true on success.
+function AttachLib.detach(attachTokenObject)
+    assert(type(attachTokenObject) == 'userdata')
+    local system, planetName = AttachLib._getSystemAndPlanetName(attachTokenObject.getPosition())
+    if system then
+        local success = AttachLib._ejectAttachment(system, planetName, attachTokenObject)
+        if success then
+            if attachTokens[attachTokenObject.getName()].decal then
+                local card = AttachLib._getPlanetCard(planetName)
+                if card then
+                    AttachLib._detachDecal(card, attachTokenObject)
+                end
+            end
+            local name = planetName or system.string
+            printToAll('Detaching "' .. attachTokenObject.getName() .. '" from "' .. name .. '"', 'Yellow')
+            return true
+        end
+    end
+end
+
+--- Move beneath any units and lock.
+function AttachLib.anchor(attachTokenObject)
+    assert(type(attachTokenObject) == 'userdata')
+    local system, planetName = AttachLib._getSystemAndPlanetName(attachTokenObject.getPosition())
+
+    local systemObject = system and getObjectFromGUID(system.guid)
+    if not systemObject then
+        return
+    end
+
+    local position = systemObject.getPosition()
+    position.y = position.y + 0.1
+
+    -- If there is a planet, use planet position instead.
+    if planetName then
+        attachTokenObject.setLock(false)
+
+        for _, planet in ipairs(system.planets or {}) do
+            if planet.name == planetName then
+                position = planet.position
+
+                -- Offset in local space when multiple attachments.
+                local slot = false
+                for name, attachment in pairs(planet._attachments or {}) do
+                    if name == attachTokenObject.getName() then
+                        slot = attachment.slot
+                    end
+                end
+                if slot then
+                    if slot > 5 then
+                        slot = slot + 0.5
+                    end
+                    local phi = math.rad((slot * 360 / 5) - 52)
+                    local r = 0.52
+                    position = {
+                        x = position.x + math.cos(phi) * r,
+                        y = position.y,
+                        z = position.z + math.sin(phi) * r
+                    }
+                end
+
+                -- Convert to world space for placement.
+                position = systemObject.positionToWorld(position)
+                position.y = position.y + 0.1
+                break
+            end
+        end
+    end
+
+    assert(position)
+    local collide = false
+    local fast = true
+    attachTokenObject.setPositionSmooth(position, collide, fast)
+
+    -- Lock (after things are stable).
+    local function condition()
+        if attachTokenObject.isSmoothMoving() then
+            return false
+        end
+        if not attachTokenObject.resting then
+            return false
+        end
+        return true
+    end
+    local function action()
+        attachTokenObject.setLock(true)
+    end
+    local function timeout() end
+    Wait.condition(action, condition, 3, timeout)
+end
+
+function AttachLib._getSystemAndPlanetName(position)
+    assert(type(position) == 'table')
+    local system = _systemHelper.systemFromPosition(position)
+    local planet = system and _systemHelper.planetFromPosition({
+        systemGuid = system.guid,
+        position = position,
+        exact = false
+    })
+    local card = false
+    if planet then
+        -- Do NOT cache planet cards by guid, deck helper may change guids.
+        for _, object in ipairs(getAllObjects()) do
+            if object.tag == 'Card' and object.getName() == planet.name then
+                card = object
+                break
+            end
+        end
+    end
+    return system, (planet and planet.name), card
+end
+
+-- Tech ALWAYS applies unless the planet already has one (can be any).
+function AttachLib._orientToken(system, planetName, attachTokenObject)
+    assert(type(system) == 'table' and (not planetName or type(planetName) == 'string') and type(attachTokenObject) == 'userdata')
+
+    local planetHasAnyTech = false
+    for _, planet in ipairs(system.planets or {}) do
+        if planet.name == planetName then
+            planetHasAnyTech = planet.tech ~= nil
+            break
+        end
+    end
+
+    local systemObject = assert(getObjectFromGUID(system.guid))
+    local rotation = systemObject.getRotation()
+    rotation.z = (planetHasAnyTech and 0) or 180
+
+    attachTokenObject.setRotation(rotation)
+end
+
+--- Add attachment to a system's planet entry.
+function AttachLib._injectAttachment(system, planetName, attachTokenObject)
+    assert(type(system) == 'table' and (not planetName or type(planetName) == 'string') and type(attachTokenObject) == 'userdata')
+
+    system = copyTable(system)
+    local name = attachTokenObject.getName()
+    local attrs = assert(attachTokens[name])
+
+    -- Override standard injection?
+    if attrs.injectFunction then
+        system = attrs.injectFunction(system, planetName, attachTokenObject)
+        if system then
+            _systemHelper.injectSystem(system)
+        end
+        return system and true or false
+    end
+
+    -- Otherwise MUST have a planet.
+    if not planetName then
+        return false
+    end
+
+    local attachment = false
+    -- Object.is_face_down might be wrong if rotation was changed this frame.
+    -- Read rotation instead.
+    local rotZ = attachTokenObject.getRotation().z
+    if rotZ > 90 or rotZ < -90 then
+        attachment = attrs.faceDown or attrs.faceUpOrDown
+    else
+        attachment = attrs.faceUp or attrs.faceUpOrDown
+    end
+    assert(attachment)
+
+    local planet = false
+    for _, candidate in ipairs(system.planets or {}) do
+        if candidate.name == planetName then
+            planet = candidate
+            break
+        end
+    end
+    assert(planet, 'missing planet ' .. name)
+    if not planet._attachments then
+        planet._attachments = {}
+    end
+
+    -- Remove if already present.
+    local dele = planet._attachments[name]
+    if dele then
+        planet.resources = (planet.resources or 0) - (dele.resources or 0)
+        planet.influence = (planet.influence or 0) - (dele.influence or 0)
+        if dele.tech then
+            planet.tech = nil
+        end
+        planet._attachments[name] = nil
+    end
+
+    -- Assign a slot (for positioning).  If a middle entry gets removed it
+    -- might lead to incorrect positions after a save/load.  Let it slide.
+    attachment = copyTable(attachment)
+    local takenSet = {}
+    for _, current in pairs(planet._attachments) do
+        if current.slot then
+            takenSet[current.slot] = true
+        end
+    end
+    for i = 1, 100 do
+        if not takenSet[i] then
+            attachment.slot = i
+            break
+        end
+    end
+
+    -- Attach.
+    planet._attachments[name] = attachment
+    planet.resources = (planet.resources or 0) + (attachment.resources or 0)
+    planet.influence = (planet.influence or 0) + (attachment.influence or 0)
+    if attachment.tech then
+        assert(not planet.tech)
+        planet.tech = attachment.tech
+    end
+
+    if planet.resources <= 0 then
+        planet.resources = nil
+    end
+    if planet.influence <= 0 then
+        planet.influence = nil
+    end
+
+    _systemHelper.injectSystem(system)
+    return true
+end
+
+-- Remove attachment from a system's planet entry.  DO NOT USE CURRENT ORIENTATION,
+-- token may have flipped, instead remove by name.
+function AttachLib._ejectAttachment(system, planetName, attachTokenObject)
+    assert(type(system) == 'table' and (not planetName or type(planetName) == 'string') and type(attachTokenObject) == 'userdata')
+    local name = attachTokenObject.getName()
+
+    system = copyTable(system)
+    local name = attachTokenObject.getName()
+    local attrs = assert(attachTokens[name])
+
+    -- Override standard ejection?
+    if attrs.ejectFunction then
+        system = attrs.ejectFunction(system, planetName, attachTokenObject)
+        if system then
+            _systemHelper.injectSystem(system)
+        end
+        return system and true or false
+    end
+    -- Otherwise MUST have a planet.
+    if not planetName then
+        return false
+    end
+
+    local planet = false
+    for _, candidate in ipairs(system.planets or {}) do
+        if candidate.name == planetName then
+            planet = candidate
+            break
+        end
+    end
+    assert(planet, 'missing planet ' .. name)
+    if not planet._attachments then
+        planet._attachments = {}
+    end
+
+    local dele = planet._attachments[name]
+    if dele then
+        planet.resources = (planet.resources or 0) - (dele.resources or 0)
+        planet.influence = (planet.influence or 0) - (dele.influence or 0)
+        if dele.tech then
+            planet.tech = nil
+        end
+        planet._attachments[name] = nil
+    end
+
+    if planet.resources <= 0 then
+        planet.resources = nil
+    end
+    if planet.influence <= 0 then
+        planet.influence = nil
+    end
+
+    _systemHelper.injectSystem(system)
+    return true
+end
+
+--- Find the card object.
+function AttachLib._getPlanetCard(planetName)
+    assert(type(planetName) == 'string')
+    -- Do NOT cache planet cards by guid, deck helper may change guids.
+    for _, object in ipairs(getAllObjects()) do
+        if object.tag == 'Card' and object.getName() == planetName then
+            return object
+        end
+    end
+end
+
+--- Add a decal to the planet card, with layout.
+function AttachLib._attachDecal(planetCardObject, attachTokenObject)
+    assert(type(planetCardObject) == 'userdata' and planetCardObject.tag == 'Card')
+    assert(type(attachTokenObject) == 'userdata')
+    local decalImage = false
+
+    -- Object.is_face_down might be wrong if rotation was changed this frame.
+    -- Read rotation instead.
+    local rotZ = attachTokenObject.getRotation().z
+    if rotZ > 90 or rotZ < -90 then
+        decalImage = attachTokenObject.getCustomObject().image_bottom
+    else
+        decalImage = attachTokenObject.getCustomObject().image
+    end
+    if not decalImage then
+        return  -- wrong object type with a different custom table?
+    end
+    local name = attachTokenObject.getName()
+    local decals = planetCardObject.getDecals() or {}
+
+    -- Remove if already present.
+    for i, decal in ipairs(decals) do
+        if decal.name == name then
+            table.remove(decals, i)
+        end
+    end
+
+    -- Add decal.
+    local scale = { x = 0.6, y = 0.6, z = 1 } -- scale is literal size here
+    table.insert(decals, {
+        name = name,
+        url = decalImage,
+        position = { x = 0, y = 0.4, z = 0 },
+        rotation = { x = 90, y = 180, z = 0 },
+        scale = scale,
+    })
+    table.insert(decals, {
+        name = name,
+        url = decalImage,
+        position = { x = 0, y = -0.4, z = 0 },
+        rotation = { x = 270, y = 0, z = 0 },
+        scale = scale,
+    })
+    AttachLib._layoutDecals(decals)
+    planetCardObject.setDecals(decals)
+end
+
+--- Remove a decal from the planet card, with layout.
+function AttachLib._detachDecal(planetCardObject, attachTokenObject)
+    assert(type(planetCardObject) == 'userdata' and planetCardObject.tag == 'Card')
+    assert(type(attachTokenObject) == 'userdata')
+    local name = attachTokenObject.getName()
+    local decals = planetCardObject.getDecals() or {}
+    for i = #decals, 1, -1 do
+        local decal = decals[i]
+        if decal.name == name then
+            table.remove(decals, i)
+        end
+    end
+    AttachLib._layoutDecals(decals)
+    planetCardObject.setDecals(decals)
+end
+
+--- Organize tokens for a grid layout, avoid planet res/inf and name areas.
+function AttachLib._layoutDecals(decals)
+    assert(type(decals) == 'table')
+    local nextIndex = 0
+    local nameToZeroBasedIndex = {}
+    for _, decal in ipairs(decals) do
+        if not nameToZeroBasedIndex[decal.name] then
+            nameToZeroBasedIndex[decal.name] = nextIndex
+            nextIndex = nextIndex + 1
+        end
+    end
+    local x0 = 0.33
+    local z0 = -1.1
+    local dx = -0.66
+    local dz = 0.65
+    local numCols = 2
+    for _, decal in ipairs(decals) do
+        local zi = nameToZeroBasedIndex[decal.name]
+        local row = math.floor(zi / numCols)
+        local col = zi % numCols
+        if row > 1 then
+            row = row + 1.5 -- planet name area
+        end
+        decal.position = {
+            x = x0 + dx * col,
+            y = decal.position.y,
+            z = z0 + dz * row
+        }
+        if decal.position.y < 0 then
+            decal.position.x = -decal.position.x
         end
     end
 end
